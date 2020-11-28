@@ -24,7 +24,7 @@ import numpy as np
 import sys
 import time
 
-from numpy.lib.function_base import diff 
+
 
 # All units in the code are a.u./hartree
 # The units of initial coordination/velocity  is ang/Å
@@ -42,9 +42,12 @@ natom = 26
 total_time = 1000 #unit fs
 nloop = 0
 threshold=0.3   ###energy difference between two states (unit eV)
-
+states = 2 ## current states
+q1=q2=q3=np.zeros((natom,3))
 
 dynamic_energy = [ ]   ## molecular dynamics  energy
+current_time =  time.asctime( time.localtime(time.time()) )
+
 
 print(Velo)
 # Relative atomic mass
@@ -52,9 +55,6 @@ masses = {'X': 0, 'Ac': 227.028, 'Al': 26.981539, 'Am': 243, 'Sb': 121.757, 'Ar'
           'Eu': 151.965, 'Fm': 257, 'F': 18.9984032, 'Fr': 223, 'Gd': 157.25, 'Ga': 69.723, 'Ge': 72.61, 'Au': 196.96654, 'Hf': 178.49, 'Hs': 265, 'He': 4.002602, 'Ho': 164.93032, 'H': 1.00794, 'In': 114.82, 'I': 126.90447, 'Ir': 192.22, 'Fe': 55.847, 'Kr': 83.8, 'La': 138.9055, 'Lr': 262, 'Pb': 207.2, 'Li': 6.941, 'Lu': 174.967, 'Mg': 24.305, 'Mn': 54.93805,
           'Mt': 266, 'Md': 258, 'Hg': 200.59, 'Mo': 95.94, 'Nd': 144.24, 'Ne': 20.1797, 'Np': 237.048, 'Ni': 58.6934, 'Nb': 92.90638, 'N': 14.00674, 'No': 259, 'Os': 190.2, 'O': 15.9994, 'Pd': 106.42, 'P': 30.973762, 'Pt': 195.08, 'Pu': 244, 'Po': 209, 'K': 39.0983, 'Pr': 140.90765, 'Pm': 145, 'Pa': 231.0359, 'Ra': 226.025, 'Rn': 222, 'Re': 186.207, 'Rh': 102.9055, 'Rb': 85.4678, 'Ru': 101.07, 'Rf': 261, 'Sm': 150.36, 'Sc': 44.95591, 'Sg': 263,
           'Se': 78.96, 'Si': 28.0855, 'Ag': 107.8682, 'Na': 22.989768, 'Sr': 87.62, 'S': 32.066, 'Ta': 180.9479, 'Tc': 98, 'Te': 127.6, 'Tb': 158.92534, 'Tl': 204.3833, 'Th': 232.0381, 'Tm': 168.93421, 'Sn': 118.71, 'Ti': 47.88, 'W': 183.85, 'U': 238.0289, 'V': 50.9415, 'Xe': 131.29, 'Yb': 173.04, 'Y': 88.90585, 'Zn': 65.39, 'Zr': 91.224}
-
-
-
 
 
 def software_running():
@@ -66,8 +66,10 @@ def software_running():
         print( "Gaussian  script is not found \n dynamic program has end at %s"  %current_time)
         sys.exit()
 
+
 def  check_initial():
     print(1)
+
 
 def replace_coordinate(filename,filename_new,new_coordinate):
     regex  = re.compile('[A-Za-z]{1,2}\s*(\s*(-?[0-9]+\.[0-9]*)){3}')
@@ -104,6 +106,7 @@ def get_grad_matrix(filename,natom):
     gradient_matrix = -np.array(data) #the gradient is opposite to the direction of force
     return gradient_matrix
 
+
 def get_energy(filename):
     regex = re.compile('SCF Done')
     regex_1 = re.compile('Excited State\s*[0-9]*:')
@@ -120,9 +123,10 @@ def get_energy(filename):
     dynamic_energy.append(sorted(energy_resort))
     return energy_resort
 
+
 def renew_calc_states(filename,filename_new,Nstate):
     regex_1 = re.compile('(?<=root=)[0-9]+')  ##regex assertion (?<=)
-    regex = re.compile('td=\(.*root=[0-9]+\)')
+    regex = re.compile('td=\(.*?\)')
     with open (filename,'r') as f:
         with open (filename_new,'w+') as f_new:
             for line in f:
@@ -244,7 +248,6 @@ def Keyvalue(*args):
         sys.exit()
 
 def on_the_fly():
-    current_time =  time.asctime( time.localtime(time.time()) )
     position_matrix_before = [ ]
     momentum_matrix_before = [ ]
     grad_matrix_before = [ ]
@@ -326,6 +329,7 @@ def  check_hopping():
         if delta_q1_u > delta_q2_u  and delta_q2_u < delta_q3_u and delta_q2_u < kin_energy[nloop - 1 ]:
             if delta_q2_u <= threshold and delta_q2_d <= threshold :
                 hop_type = 1 
+
             elif delta_q2_d <= threshold and delta_q2_u > threshold :
                 hop_type = 2 
             elif delta_q2_u <= threshold and delta_q2_d > threshold :
@@ -345,5 +349,130 @@ def  check_hopping():
                  than %s at %d step" %(threshold ,nloop) ) 
     else: 
         print ("No local minmum between PESs observed at %d step" %nloop)
-
+    
+    if hop_type == 2:
+        hop_direction = 'D'
+        hop_p = 0 
+        renew_calc_states()
+        get_grad_matrix()
+        get_hop_factor()
+        rand_p = np.random.rand()
+        if ( hop_p >= rand_p):
+            print ("Hopping succeed %s" %current_time)
+        else:
+            print("Hopping failure %s" %current_time)
+    elif hop_type == 3:
+        hop_direction = 'U'
+        hop_p = 0 
+        renew_calc_states()
+        get_grad_matrix()
+        get_hop_factor()
+        rand_p = np.random.rand()
+        if ( hop_p >= rand_p):
+            print ("Hopping succeed %s",)
+        else:
+            print("Hopping failure %s" %current_time)
+    elif  hop_type == 1:
+        hop_direction = 'U'
+        hop_p = 0  
+        renew_calc_states()
+        get_grad_matrix()
+        get_hop_factor()
+        hop_p_u = hop_p 
+        hop_direction = 'D'
+        hop_p = 0 
+        renew_calc_states()
+        get_grad_matrix()
+        get_hop_factor()
+        hop_p_d = hop_p 
+        if hop_p_u > hop_p_d :
+            hop_direction = 'U' 
+            hop_p = hop_p_u 
+            rand_p = np.random.rand() 
+            if hop_p >= rand_p :
+                print("Hopping succeed at %s" %current_time)
+            else:
+                print("Hopping failure %s" %current_time)
+        else:
+            hop_direction = 'D'
+            hop_p = hop_p_d
+            rand_p = np.random.rand()
+            if hop_p >= rand_p :
+                print("Hopping succeed at %s" %current_time)
+            else:
+                print("Hopping failure %s" %current_time)                
+    else:
+        print ("hop_type is error")
         
+
+
+
+
+
+def get_hop_factor():
+    hop_direction = None
+    grad_q2u = grad_q2d = np.zeros((natom,3))
+    mom_direction_factor = np.zeros((natom,3))
+    hop_direction_matrix  = np.zeros((natom,3))
+    hop_direction_normal = np.zeros((natom,3))
+    delta_grad_q2 = 0
+    if (hop_direction == 'D'): ##downward 
+        Ex = (dynamic_energy[nloop][states]  + dynamic_energy[nloop][states-1]) * 0.50000 
+        Vx = (dynamic_energy[nloop][states]  - dynamic_energy[nloop][states-1]) * 0.50000
+        for  i in range(natom):
+            if np.linalg.norm(q3[i]-q1[i],ord=1) <= 0.00005:
+                grad_q2u = grad_q2d = 0 # The coordinates of atom i at q1 and q3 have not changed
+            else:
+                for j in range(3):
+                    grad_q2d[i][j] = -(q3[i][j] - q1[i][j])*(grad_q3d[i][j]*(q2[i][j] - q1[i][j]) 
+                            - grad_q1u*(q2[i][j] - q3[i][j]))
+                    grad_q2u[i][j] = -(q3[i][j] - q1[i][j])*(grad_q3u[i][j]*(q2[i][j] - q1[i][j])
+                            - grad_q1d*(q2[i] - q3[i]))
+                    delta_grad_q2 += (grad_q2u[i][j] - grad_q2d[i][j]) ** 2 /element_mass[i] 
+                    mom_direction_factor[i][j]=((grad_q2u[i][j] - grad_q2d[j][j]) / element_mass[i]) 
+                    F12 += grad_q2d[i][j] * grad_q2u[i][j]
+    else:  ### hop_type == 'U' 
+        Ex = (dynamic_energy[nloop][states]  + dynamic_energy[nloop][states+1]) * 0.50000
+        Vx = (dynamic_energy[nloop][states]  - dynamic_energy[nloop][states+1]) * 0.50000
+        for i in range(natom):
+            if np.linalg.norm(q3[i]-q1[i],ord=1) <= 0.00005:
+                grad_q2u = grad_q2d = 0  # The coordinates of atom i at q1 and q3 have not changed
+            else:
+                for j in range(3):
+                    grad_q2d[i][j] = -(q3[i][j] - q1[i][j])*(grad_q3u[i][j]*(q2[i][j] - q1[i][j]) 
+                            - grad_q1d*(q2[i][j] - q3[i][j]))
+                    grad_q2u[i] = -(q3[i][j] - q1[i][j])*(grad_q3d[i][j]*(q2[i][j] - q1[i][j])
+                            - grad_q1u*(q2[i][j] - q3[i][j]))
+                    delta_grad_q2 += (grad_q2u[i][j] - grad_q2d[i][j]) ** 2 /element_mass[i]  # \sum (F2_i-F1_i)^2/m_i
+                    mom_direction_factor[i][j]=(grad_q2u[i][j] - grad_q2d[j][j]) / np.sqrt(element_mass[i]) #(F2_i-F1_1)^2/ sqrt{m_i}
+                    F12 += grad_q2d[i][j] * grad_q2u[i][j] ###sum F_i1 * F_i2 
+    ##calculate a^2 and b2 
+    f_aa = delta_grad_q2 / (16 * Vx^3)  ##a.u. Reduced Planck constant =1 
+    f_bb = (energy_e - Ex) / (2 * Vx)   # energy_e =  SCF + kinetic energy
+    if f_aa > 1000 :
+        hop_p = 1 
+    elif f_aa < 0.001:
+        hop_p = 0.0
+    else:
+        if F12 >= 0 :
+            hop_p =np.exp(-np.pi/(4* np.sqrt(f_aa)) * np.sqrt(2 / (f_bb + np.sqrt(f_bb^2+1))))
+        else:
+            hop_p =np.exp(-np.pi/(4* np.sqrt(f_aa)) * np.sqrt(2 / (f_bb + np.sqrt(f_bb^2-1))))
+
+    """
+    Calculate every atom normalized momentum factor
+    s_i = [ (F_i^2(q2) - F_i^1(q2)) * 1/m_i ] / sqrt{(F2-F1)^2 1/mi }
+    hop direction 
+    n_i = s_i / |s_i|
+    """
+    hop_direction_matrix = mom_direction_factor / np.sqrt(delta_grad_q2) #S_i 
+    energy_parallel = 0
+    for i in range(natom):
+        hop_direction_normal[i] = hop_direction_matrix[i] /np.linalg.norm(hop_direction_matrix[i])#n_i 
+        mom_parallel[i] = np.dot(hop_direction_normal[i],mom_total[i]) * hop_direction_normal[i] #p_parallel = (n_i . p_i)p_i
+        energy_parallel += np.linalg.norm(mom_parallel[i])**2 
+    increment_k = np.sqrt(1+ delta_energy_q2/energy_parallel)
+    #delta_energy_q2 = total_energy_q2(+) - total_energy_q2(-)
+    #k = \sqrt{1+\frac{U_-(q2) - U_+(q2)}{\sum_{i=1}{N}\frac{P_{i//}^2{(+)}2m_i}}}
+    for i in range(natom): #calculate the momentum after the hopping 
+        mom_renew[i] = mom_total[i] + (increment_k - 1)(np.dot(mom_total[i],hop_direction_normal[i]))*hop_direction_normal[i]
