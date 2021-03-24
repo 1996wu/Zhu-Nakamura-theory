@@ -7,51 +7,66 @@ import numpy as np
 
 eV = 27.21138602
 ang = 0.529177257507
+numlti = {'Singlet': 1,
+          'Doublet': 2,
+          'Triplet': 3,
+          'Quartet': 4,
+          'Quintet': 5,
+          'Sextet': 6,
+          'Septet': 7,
+          'Octet': 8
+          }
+
+
 def current_time():
     return time.asctime(time.localtime(time.time()))
 
+
 def software_running(filename='gauss.gjf'):
     if os.path.isfile("gaussian.sh"):
-        print("The Gaussian begin running at %s" %current_time(), flush=True)
-        os.system(r"sed -i 's/\(g16\).*/\1  %s/' gaussian.sh " %filename)
-        os.system("./gaussian.sh ")
+        print("The Gaussian begin running at %s" % current_time(), flush=True)
+        os.system(r"sed -i 's/\(g16\).*/\1  %s/' gaussian.sh " % filename)
+        os.system("./gaussian.sh  ")
         print("The Gaussian ended at %s" % current_time(), flush=True)
     else:
-        print("Gaussian  script is not found \n dynamic program has end at %s" %current_time())
+        print("Gaussian  script is not found \n dynamic program has end at %s" %
+              current_time())
         sys.exit()
 
+
 def read_wavefunction(filename='gauss.gjf'):
-    flag_chk=False
+    flag_chk = False
     with open(filename, 'r') as f:
         for line in f:
-            if re.search('geom=allcheck\s*guess=read',line, re.IGNORECASE):
+            if re.search('geom=allcheck', line, re.IGNORECASE):
                 flag_chk = True
     regex = re.compile("force", re.IGNORECASE)
-    with open(filename, 'r') as f:
-        with open("%s.bak" %filename, 'w+') as f_new:
-            for line in f:
-                if not regex.search(line):
-                    f_new.write(line)
+    with open(filename, 'r') as f, open("%s.bak" % filename, 'w+') as f_new:
+        for line in f:
+            if not regex.search(line):
+                f_new.write(line)
+            else:
+                if not flag_chk:
+                    line = re.sub('\r?\n', '', line).strip()
+                    f_new.write(
+                        line + ' '+'geom=allcheck ' + '\n')
                 else:
-                    if not flag_chk:
-                        line = re.sub('\r?\n', '', line).strip()
-                        f_new.write(line +' '+'geom=allcheck guess=read' + '\n')
-                    else:
-                        f_new.write(line)
+                    f_new.write(line)
     os.remove(filename)
-    os.rename("%s.bak" %filename, filename)
+    os.rename("%s.bak" % filename, filename)
+
 
 def delete_wavefunction(filename='gauss.gjf'):
-    regex = re.compile('geom=allcheck\s*guess=read', re.IGNORECASE)
-    with open(filename, 'r') as f:
-        with open("%s.bak" %filename, 'w+') as f_new:
-            for line in f:
-                if not regex.search(line):
-                    f_new.write(line)
-                else:
-                    f_new.write(re.sub(regex,'',line))
+    regex = re.compile('geom=allcheck', re.IGNORECASE)
+    with open(filename, 'r') as f, open("%s.bak" % filename, 'w+') as f_new:
+        for line in f:
+            if not regex.search(line):
+                f_new.write(line)
+            else:
+                f_new.write(re.sub(regex, '', line))
     os.remove(filename)
-    os.rename("%s.bak" %filename, filename)
+    os.rename("%s.bak" % filename, filename)
+
 
 def check_initial():
     if os.path.isfile("gauss.gjf"):
@@ -81,7 +96,7 @@ def check_initial():
     if os.path.isfile("initial_condition"):
         with open("initial_condition", 'r') as f:
             for line in f:
-                if len(line.split()) ==0:
+                if len(line.split()) == 0:
                     continue
                 else:
                     if len(line.split()) != 7:
@@ -91,16 +106,19 @@ def check_initial():
     else:
         print("'initial_condition' is not found ,plase check it again")
 
+
 def _get_keyword(filename='gauss.gjf'):
     regex = re.compile('(tda?=?\(.*?\)|tda)', re.IGNORECASE)
-    key = [ ]
+    key = []
     with open(filename) as f:
         for line in f:
             if regex.search(line):
                 keyword = ' '.join(str(x) for x in regex.findall(line))
                 key.append(keyword)
-    tda=' '.join(str(x) for x in key)
+    tda = ' '.join(str(x) for x in key)
     return tda.strip()
+
+
 word = _get_keyword()
 
 
@@ -125,6 +143,7 @@ def get_grad_matrix(filename, natom):
     gradient_matrix = -np.array(data)
     return gradient_matrix
 
+
 def get_energy(filename):
     """
     get S0/the excited stated energy from detailed output file. 
@@ -133,6 +152,8 @@ def get_energy(filename):
     regex_1 = re.compile('Excitation Energies \[eV] at current iteration:')
     regex_2 = re.compile('Convergence achieved on expansion vectors')
     regex_3 = re.compile('Total Energy')
+    #regex_4 = re.compile('(?<=\s*Excited State\s*[0-9]*\s*:\s*)(Triplet|Singlet)')
+    regex_4 = re.compile('Excited State\s*[0-9]*\s*:')
     energy = []
     tmp = []
     E_ground = 0.0
@@ -140,18 +161,21 @@ def get_energy(filename):
     flag_g = True
     flag_e = False
     flag_c = False
+    #nmulti = [ ]
+    #nstate = [ ]
     with open(filename, 'r') as f:
         for line in f:
             if flag_g:
-                if regex.search(line):
+                if regex.search(line):  # SCF Done
                     E_ground = float(line.split()[4])
                     energy.append(E_ground)
                     flag_g = False
             else:
-                if flag_c:
+                if flag_c:  # excited states iteration done
                     if regex_3.search(line):
                         E_total = float(line.split()[4])
-                        break
+                    # if regex_4.search(line):
+                     #   nmulti.append(line.split()[3][:-2])
                 else:
                     if flag_e:
                         if regex_2.search(line):
@@ -167,9 +191,10 @@ def get_energy(filename):
                     else:
                         if regex_1.search(line):
                             flag_e = True
-        if len(energy) == 1:#
+        if len(energy) == 1:
             E_total = E_ground
     return sorted(energy), E_total
+
 
 def renew_calc_states(Nstate, filename, filename_new=None):
     """
@@ -182,56 +207,55 @@ def renew_calc_states(Nstate, filename, filename_new=None):
     regex_1 = re.compile('(?<=root=)[0-9]+', re.IGNORECASE)
     regex = re.compile('(tda?=?\(.*?\)|tda)', re.IGNORECASE)
     flag = False
-    flag_td= False
-    with open (filename) as f:
+    flag_td = False
+    with open(filename) as f:
         for line in f:
             if regex.search(line):
                 flag_td = True
     if not filename_new:
-            flag = True
-            filename_new = "%s.bak" % filename
+        flag = True
+        filename_new = "%s.bak" % filename
     if flag_td:
-        with open(filename, 'r') as f:
-            with open(filename_new, 'w+') as f_new:
-                for line in f:
-                    if not regex.search(line):
-                        f_new.write(line)
+        with open(filename, 'r') as f, open(filename_new, 'w+') as f_new:
+            for line in f:
+                if not regex.search(line):
+                    f_new.write(line)
+                else:
+                    if Nstate == 0:
+                        f_new.write(re.sub(regex, '', line))
                     else:
-                        if Nstate == 0:
-                            f_new.write(re.sub(regex, '', line))
-                        else:
-                            f_new.write(re.sub(regex_1, str(Nstate), line))
-    else:#S0-> the excited states
-        regex_2 = re.compile('force',re.IGNORECASE)
-        with open(filename, 'r') as f:
-            with open(filename_new, 'w+') as f_new:
-                for line in f:
-                    if not regex_2.search(line):
-                        f_new.write(line)
-                    else:
-                        line = re.sub('\r?\n', '', line).strip()
-                        WORD = re.sub(regex_1, '1', word)
-                        f_new.write(line +' '+WORD + '\n')
+                        f_new.write(re.sub(regex_1, str(Nstate), line))
+    else:  # S0-> the excited states
+        regex_2 = re.compile('force', re.IGNORECASE)
+        with open(filename, 'r') as f,  open(filename_new, 'w+') as f_new:
+            for line in f:
+                if not regex_2.search(line):
+                    f_new.write(line)
+                else:
+                    line = re.sub('\r?\n', '', line).strip()
+                    WORD = re.sub(regex_1, '1', word)
+                    f_new.write(line + ' '+WORD + '\n')
     if flag:
         os.remove(filename)
         os.rename(filename_new, filename)
+
 
 def replace_coordinate(new_coordinate, filename='gauss.gjf', ):
     regex = re.compile('[A-Za-z]{1,2}\s*(\s*(-?[0-9]+\.[0-9]*)){3}')
     regex_1 = re.compile('(\s*(-?[0-9]+\.[0-9]*)){3}')
     count = 0
-    with open(filename, 'r') as f:
-        with open("%s.bak" % filename, 'w+') as f_new:
-            for n, line in enumerate(f):
-                if not regex.findall(line):
-                    f_new.write(line)
-                else:
-                    replace_coord = ''.join(format(i * ang, '>18.10f')
-                                            for i in new_coordinate[count][:3])
-                    f_new.write(re.sub(regex_1, replace_coord, line))
-                    count += 1
+    with open(filename, 'r') as f, open("%s.bak" % filename, 'w+') as f_new:
+        for n, line in enumerate(f):
+            if not regex.findall(line):
+                f_new.write(line)
+            else:
+                replace_coord = ''.join(format(i * ang, '>18.10f')
+                                        for i in new_coordinate[count][:3])
+                f_new.write(re.sub(regex_1, replace_coord, line))
+                count += 1
     os.remove(filename)
     os.rename("%s.bak" % filename, filename)
+
 
 def analyse_result(filename='gauss.log'):
     regex = re.compile('Error termination')
@@ -240,13 +264,14 @@ def analyse_result(filename='gauss.log'):
     with open(filename, 'r') as f:
         for line in f:
             if regex.search(line):
-                print('Gaussian possible convergence error',flag=True)
+                print('Gaussian possible convergence error', flag=True)
                 flag = True
             if regex_1.search(line):
-                if float(line.split()[4]) < 0 :
-                    print('Excitation energy is negative',flush=True)
+                if float(line.split()[4]) < 0:
+                    print('Excitation energy is negative', flush=True)
                     flag = True
     return flag
+
 
 def print_traj_cicoe(time, filename='gauss.log'):
     with open('traj_cicoe.log', 'a+') as f:
@@ -268,4 +293,3 @@ def print_traj_cicoe(time, filename='gauss.log'):
                 else:
                     addflag = True
                     f.write(line)
-
