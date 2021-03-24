@@ -22,11 +22,11 @@ import os
 import re
 import sys
 import time
+import shutil
 
 import numpy as np
 
 np.set_printoptions(precision=16)
-
 
 # All units in the code are a.u./hartree
 # The units of initial coordination/velocity  is  Angstrom/Å  and Bohr / a.u.
@@ -44,17 +44,16 @@ scf_energy = []
 hop_time = [0]  # hop time in dynamic programs
 element_mass = []
 element = []
-atom_list = [ ]
+atom_list = []
 atom_value_range = []
 
-#software 1.GAUSSIAN  2.ORCA  3.BDF 4.MOLPRO 5.MOLCAS  
-global soft 
-soft = '0'
-with open('run.inp', 'r') as f: 
+# software 1.GAUSSIAN  2.ORCA  3.BDF 4.MOLPRO 5.MOLCAS
+global soft
+with open('run.inp', 'r') as f:
     for n, line in enumerate(f):
         if n == 7:
             soft = str(line.split()[0])
-if  soft == '1':
+if soft == '1':
     from GAUSSIAN import *
 elif soft == '2':
     from ORCA import *
@@ -78,53 +77,57 @@ def basis_constant():
     pi = np.pi
     Velo = 2.18769126364 * 10e6  # 1 a.u. = 2.187*10e4  m/s
 
+
 def set_var():
-    global SI_step_time, step_time, total_time, sim_begin_time, dynamics_time
+    global SI_step_time, step_time, total_time, sim_begin_time, dynamics_time, initail_step_time
     global states_involved, dyn_states, states_max, states_min
     global nloop
     global soft
     global threshold
+    global flag_gap
+    flag_gap = False
     if os.path.exists('run.inp'):
         with open('run.inp', 'r') as f:
-            for n,line in enumerate(f):
+            for n, line in enumerate(f):
                 if n == 1:
                     line = [float(x) for x in line.split(",")]
                     sim_begin_time, SI_step_time, total_time = line[:3]
+                    initail_step_time = SI_step_time
                     step_time = SI_step_time / fs
-                elif n == 3 :
+                elif n == 3:
                     nloop = int(line.split(",")[0])
                     dynamics_time = sim_begin_time + SI_step_time * nloop
                 elif n == 5:
-                   line = [float(x) for x in line.split(",")]
-                   states_involved, dyn_states, states_max, states_min =line[:4]
+                    line = [int(x) for x in line.split(",")]
+                    states_involved, dyn_states, states_max, states_min = line[:4]
                 #    soft = str(line.split()[0])
                 elif n == 9:
                     threshold = float(line.split(",")[0])
     else:
-        print("run.inp does not exist",flush=True)
+        print("run.inp does not exist", flush=True)
         sys.exit(1)
-    #dynamics_time = sim_begin_time + SI_step_time * nloop
-    #SI_step_time = 0.50  # unit:fs e-14
-    #step_time = SI_step_time / fs
-    #total_time = 1000  # unit fs
-    #nloop = 0
-    #threshold = 0.3  # energy difference between two states (unit eV)
-    #states_involved = 2  # Number of states involved in dynamics
-    #dyn_states = 1  # the current dynamics states
-    #states_max = 2
-    #states_min = 1
-    #set input and output  file format
+    # dynamics_time = sim_begin_time + SI_step_time * nloop
+    # SI_step_time = 0.50  # unit:fs e-14
+    # step_time = SI_step_time / fs
+    # total_time = 1000  # unit fs
+    # nloop = 0
+    # threshold = 0.3  # energy difference between two states (unit eV)
+    # states_involved = 2  # Number of states involved in dynamics
+    # dyn_states = 1  # the current dynamics states
+    # states_max = 2
+    # states_min = 1
+    # set input and output  file format
     global inputfile, inputfile_d, inputfile_u
     global outputfile, outputfile_d, outputfile_u
-    filename = None 
+    filename = None
     suffix = None
     suffix_1 = None
-    if soft  == '1':
+    if soft == '1':
         filename = 'gauss'
         suffix = '.gjf'
         suffix_1 = '.log'
     elif soft == '2':
-        filename = 'orca' 
+        filename = 'orca'
     elif soft == '3':
         filename = 'bdf'
     elif soft == '4':
@@ -132,13 +135,13 @@ def set_var():
     elif soft == '5':
         filename = 'molcas'
     else:
-        pass 
+        pass
     inputfile = filename + suffix
     inputfile_d = filename + '_d' + suffix
-    inputfile_u = filename+ '_u' + suffix
+    inputfile_u = filename + '_u' + suffix
     outputfile = filename + suffix_1
     outputfile_d = filename + '_d' + suffix_1
-    outputfile_u = filename+ '_u' + suffix_1
+    outputfile_u = filename + '_u' + suffix_1
 
 
 # Relative atomic mass
@@ -160,6 +163,7 @@ masses = {'X': 0, 'Ac': 227.028, 'Al': 26.981539, 'Am': 243, 'Sb': 121.757, 'Ar'
           'Ti': 47.88, 'W': 183.85, 'U': 238.0289, 'V': 50.9415, 'Xe': 131.29, 'Yb': 173.04, 'Y': 88.90585, 'Zn': 65.39,
           'Zr': 91.224}
 
+
 def current_time():
     return time.asctime(time.localtime(time.time()))
 
@@ -177,24 +181,26 @@ def get_initail_codition():
                     break
         natom = len(element)
         element_mass = np.array(element_mass)
+
     def get_key_element():
         if os.path.exists('geom.inp'):
             with open('geom.inp', 'r') as f:
                 for line in f:
-                    if line :
+                    if line:
                         if len(line.split()) == 8:
-                            tmp = [ int(i) for i in line.split()[:4] if 0 < int(i) <= natom ]
+                            tmp = [int(i) for i in line.split()[:4] if 0 < int(i) <= natom]
                             atom_list.append(tmp)
-                            tmp_1 = [ float(i)  for i in line.split()[4:] ]
+                            tmp_1 = [float(i) for i in line.split()[4:]]
                             atom_value_range.append(tmp_1)
                         else:
                             print("'geom.inp' format is error eg: atom1 atom2 atom3 atom4 num1  num2 num3 num4")
                             sys.exit(1)
                     else:
-                        continue 
+                        continue
         else:
             print("'geom.inp' does not exist")
             sys.exit(1)
+
     def get_position_matrix():
         with open('initial_condition', 'r') as f:
             position_matrix = []
@@ -203,6 +209,7 @@ def get_initail_codition():
                 data = [i / ang for i in data]
                 position_matrix.append(data)
             return np.array(position_matrix)
+
     def get_momentum_matrix():  # element x y z  p_x p_y p_z
         with open('initial_condition', 'r') as f:
             momentum_matrix = []
@@ -210,14 +217,16 @@ def get_initail_codition():
                 data = list(map(float, value.split()[-3:]))
                 momentum_matrix.append(data)
             return np.array(momentum_matrix)
+
     get_element_mass()
     get_key_element()
     coord.append(get_position_matrix())
     momentum.append(get_momentum_matrix())
 
+
 def analyse_result(filename=None):
     """
-    grad, potential_energy, total_energy  
+    grad, potential_energy, total_energy
     """
     Filename = None
     if soft == '1':
@@ -233,24 +242,24 @@ def analyse_result(filename=None):
     else:
         pass
     if filename:
-       Filename = filename
+        Filename = filename
     grad.append(get_grad_matrix(Filename, natom))
     E_exc, E_scf = get_energy(Filename)
     scf_energy.append(E_scf)
-    if dyn_states >= 1  or states_involved <= 1 :
-        #S0 dynamics  and the excited dynamics
+    if dyn_states >= 1 or states_involved <= 1:
+        # S0 dynamics  and the excited dynamics
         potential_energy.append(E_exc)
-    else:#after hopping S0 dynamics
-        print("Begin calculate the excited states energy at %s" %current_time(),flush=True )
+    else:  # after hopping S0 dynamics
+        print("Begin calculate the excited states energy at %s" % current_time(), flush=True)
         read_wavefunction()
-        #Get the keywords of the previous input file
-        renew_calc_states(states_involved,inputfile)
+        # Get the keywords of the previous input file
+        renew_calc_states(states_involved, inputfile)
         software_running()
         E_exc, E_scf = get_energy(Filename)
-        #get the excited stated excited energy
+        # get the excited stated excited energy
         potential_energy.append(E_exc)
         delete_wavefunction()
-        renew_calc_states(dyn_states,inputfile)
+        renew_calc_states(dyn_states, inputfile)
 
 
 """
@@ -267,7 +276,7 @@ def update_positon_matrix(position_matrix, momentum_matrix, grad_matrix, element
     position_matrix_back = []
     for i in range(natom):
         data = position_matrix[i] + (momentum_matrix[i] / element_mass[i]) * \
-            step_time - 0.5 * (grad_matrix[i] / element_mass[i]) * step_time**2
+               step_time - 0.5 * (grad_matrix[i] / element_mass[i]) * step_time ** 2
         position_matrix_back.append(data)
     return np.array(position_matrix_back)
 
@@ -282,10 +291,9 @@ def update_momentum_matrix(momentum_matrix, grad_matrix, grad_matrix_back):
     velocity_matrix_back = []
     for i in range(natom):
         data = momentum_matrix[i] - 0.5 * \
-            (grad_matrix[i] + grad_matrix_back[i]) * step_time
+               (grad_matrix[i] + grad_matrix_back[i]) * step_time
         velocity_matrix_back.append(data)
     return np.array(velocity_matrix_back)
-
 
 
 def Keyvalue(*args):
@@ -336,7 +344,7 @@ def Keyvalue(*args):
 
 def on_the_fly():  # 在software check——hooping 之后
     """
-    renew the current step momentum and the nex step poistion 
+    renew the current step momentum and the nex step poistion
     """
     global q1, q2, q3
     if nloop == 0:  # first step
@@ -381,17 +389,17 @@ def check_hopping():  # when nloop >=2,begin check hopping
         delta_q1_d = 0.00000
         delta_q2_d = 0.00000
         delta_q3_d = 0.00000
-        if dyn_states == 0 and states_involved <= 1: #S0 dynamic 
+        if dyn_states == 0 and states_involved <= 1:  # S0 dynamic
             delta_q1_u = 0.00000
             delta_q2_u = 0.00000
             delta_q3_u = 0.00000
         else:
             delta_q1_u = (potential_energy[nloop - 2][state_u_num] -
-                        potential_energy[nloop - 2][dyn_states]) * eV
+                          potential_energy[nloop - 2][dyn_states]) * eV
             delta_q2_u = (potential_energy[nloop - 1][state_u_num] -
-                        potential_energy[nloop - 1][dyn_states]) * eV
+                          potential_energy[nloop - 1][dyn_states]) * eV
             delta_q3_u = (potential_energy[nloop][state_u_num] -
-                        potential_energy[nloop][dyn_states]) * eV
+                          potential_energy[nloop][dyn_states]) * eV
         print("The current states(%d) is the lowest state" % dyn_states)
         print(
             "The energy differences between %s and %s states at the least three point(q1,q2,q3-current) are:%12.6f %12.6f %12.6f"
@@ -399,17 +407,18 @@ def check_hopping():  # when nloop >=2,begin check hopping
     else:  # the middle state
         state_u_num = dyn_states + 1
         state_d_num = dyn_states - 1
+        state_m_mum = dyn_states
         delta_q1_u = (potential_energy[nloop - 2][state_u_num] -
-                      potential_energy[nloop - 2][state_d_num]) * eV
+                      potential_energy[nloop - 2][state_m_mum ]) * eV
         delta_q2_u = (potential_energy[nloop - 1][state_u_num] -
-                      potential_energy[nloop - 1][state_d_num]) * eV
+                      potential_energy[nloop - 1][state_m_mum]) * eV
         delta_q3_u = (potential_energy[nloop][state_u_num] -
-                      potential_energy[nloop][state_d_num]) * eV
-        delta_q1_d = (potential_energy[nloop - 2][state_u_num] -
+                      potential_energy[nloop][state_m_mum]) * eV
+        delta_q1_d = (potential_energy[nloop - 2][state_m_mum ] -
                       potential_energy[nloop - 2][state_d_num]) * eV
-        delta_q2_d = (potential_energy[nloop - 1][state_u_num] -
+        delta_q2_d = (potential_energy[nloop - 1][state_m_mum ] -
                       potential_energy[nloop - 1][state_d_num]) * eV
-        delta_q3_d = (potential_energy[nloop][state_u_num] -
+        delta_q3_d = (potential_energy[nloop][state_m_mum ] -
                       potential_energy[nloop][state_d_num]) * eV
         print("The current states(%d) is middle state" % dyn_states, flush=True)
         print(
@@ -419,8 +428,8 @@ def check_hopping():  # when nloop >=2,begin check hopping
             "The energy differences between %s and %s states at the least three point(q1,q2,q3-current) are: %12.6f %12.6f %12.6f"
             % (dyn_states, state_u_num, delta_q1_u, delta_q2_u, delta_q3_u), flush=True)
     """
-    check the type of hopping 
-    1. A double hop-upward and downward 
+    check the type of hopping
+    1. A double hop-upward and downward
     2. A downward hop
     3. A upward hop
     """
@@ -440,7 +449,8 @@ def check_hopping():  # when nloop >=2,begin check hopping
                 hop_type = 2
             else:
                 print(
-                    "The minimum energy separations for downward transitions are larger than  %s" % threshold, flush=True)
+                    "The minimum energy separations for downward transitions are larger than  %s" % threshold,
+                    flush=True)
     elif delta_q1_u > delta_q2_u and delta_q2_u < delta_q3_u and delta_q2_u < kin_energy[nloop - 1]:
         if delta_q2_u <= threshold:
             hop_type = 3
@@ -453,7 +463,7 @@ def check_hopping():  # when nloop >=2,begin check hopping
     if hop_type == 2 and nloop >= (hop_time[-1] + 2):
         hop_direction = 'D'
         # calculate = q3 down_state grad
-        #replace_coordinate(q3)  #the current coordinate is q3 ,so this is no significance
+        # replace_coordinate(q3)  #the current coordinate is q3 ,so this is no significance
         renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
         software_running(inputfile_d)
         grad_q3d = get_grad_matrix(outputfile_d, natom)
@@ -465,6 +475,7 @@ def check_hopping():  # when nloop >=2,begin check hopping
         hop_p, delta_grad_q2, mom_direction_factor, grad_q2d, grad_q2u = get_hop_factor(
             grad_q3d, grad[nloop], grad_q1d, grad[nloop - 2], hop_direction)
         rand_p = np.random.rand()
+        print(hop_p, rand_p, flush=True)
         if hop_p >= rand_p:
             print("Hopping succeed %s" % current_time(), flush=True)
             hopping_renew(delta_grad_q2, mom_direction_factor,
@@ -474,7 +485,7 @@ def check_hopping():  # when nloop >=2,begin check hopping
     elif hop_type == 3 and nloop >= (hop_time[-1] + 2):
         hop_direction = 'U'
         # calculate = q3 up_state grad
-        #replace_coordinate(q3)
+        # replace_coordinate(q3)
         renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
         software_running(inputfile_u)
         grad_q3u = get_grad_matrix(outputfile_u, natom)
@@ -487,6 +498,7 @@ def check_hopping():  # when nloop >=2,begin check hopping
             grad[nloop], grad_q3u, grad[nloop - 2], grad_q1u, hop_direction)
         rand_p = np.random.rand()
         if hop_p >= rand_p:
+            print(hop_p, rand_p, flush=True)
             print("Hopping succeed %s" % current_time(), flush=True)
             hopping_renew(delta_grad_q2, mom_direction_factor,
                           hop_direction, grad_q2d, grad_q2u)
@@ -500,7 +512,7 @@ def check_hopping():  # when nloop >=2,begin check hopping
         """
         hop_direction = 'U'
         hop_p = 0
-        #replace_coordinate(q3)
+        # replace_coordinate(q3)
         # calculate = q3 up_state grad
         renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
         software_running(inputfile_u)
@@ -517,7 +529,7 @@ def check_hopping():  # when nloop >=2,begin check hopping
         """
         hop_direction = 'D'
         # calculate = q3 down_state grad
-        #replace_coordinate(q3)
+        # replace_coordinate(q3)
         renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
         software_running(inputfile_d)
         grad_q3d = get_grad_matrix(outputfile_d, natom)
@@ -531,6 +543,7 @@ def check_hopping():  # when nloop >=2,begin check hopping
         if hop_p_u > hop_p_d:
             hop_direction = 'U'
             rand_p = np.random.rand()
+            print(hop_p, rand_p, flush=True)
             if hop_p_u >= rand_p:
                 print("Hopping succeed at %s" % current_time(), flush=True)
                 hopping_renew(delta_grad_q2_u, mom_direction_factor_u,
@@ -540,6 +553,7 @@ def check_hopping():  # when nloop >=2,begin check hopping
         else:
             hop_direction = 'D'
             rand_p = np.random.rand()
+            print(hop_p, rand_p, flush=True)
             if hop_p_d >= rand_p:
                 print("Hopping succeed at %s" % current_time(), flush=True)
                 hopping_renew(delta_grad_q2_d, mom_direction_factor_d,
@@ -566,14 +580,14 @@ def get_hop_factor(grad_q3d, grad_q3u, grad_q1d, grad_q1u, hop_direction):
             else:
                 for j in range(3):
                     grad_q2d[i][j] = - (1 / (q3[i][j] - q1[i][j])) * (grad_q3d[i][j] * (q2[i][j] - q1[i][j])
-                                                               - grad_q1u[i][j] * (q2[i][j] - q3[i][j]))
+                                                                      - grad_q1u[i][j] * (q2[i][j] - q3[i][j]))
                     grad_q2u[i][j] = - (1 / (q3[i][j] - q1[i][j])) * (grad_q3u[i][j] * (q2[i][j] - q1[i][j])
-                                                               - grad_q1d[i][j] * (q2[i][j] - q3[i][j]))
-                    #\sum{\frac{(F^2_i - F^1_i)^2}{m_i}}
+                                                                      - grad_q1d[i][j] * (q2[i][j] - q3[i][j]))
+                    # \sum{\frac{(F^2_i - F^1_i)^2}{m_i}}
                     delta_grad_q2 += (grad_q2u[i][j] - grad_q2d[i][j]) ** 2 / element_mass[i]
-                    #\frac{F^2_i - F^1_1 }{\sqrt{m_i}}
+                    # \frac{F^2_i - F^1_1 }{\sqrt{m_i}}
                     mom_direction_factor[i][j] = (grad_q2u[i][j] - grad_q2d[j][j]) / np.sqrt(element_mass[i])
-                    #\sum{F^1_i * F^2_i}
+                    # \sum{F^1_i * F^2_i}
                     F12 += grad_q2d[i][j] * grad_q2u[i][j]
     elif hop_direction == 'U':
         Ex = (potential_energy[nloop][dyn_states] +
@@ -585,10 +599,10 @@ def get_hop_factor(grad_q3d, grad_q3u, grad_q1d, grad_q1u, hop_direction):
                 grad_q2u[i] = grad_q2d[i] = 0
             else:
                 for j in range(3):
-                    grad_q2d[i][j] = -(1/(q3[i][j] - q1[i][j])) * (grad_q3u[i][j] * (q2[i][j] - q1[i][j])
-                                                               - grad_q1d[i][j] * (q2[i][j] - q3[i][j]))
-                    grad_q2u[i][j] = -(1/(q3[i][j] - q1[i][j])) * (grad_q3d[i][j] * (q2[i][j] - q1[i][j])
-                                                               - grad_q1u[i][j] * (q2[i][j] - q3[i][j]))
+                    grad_q2d[i][j] = -(1 / (q3[i][j] - q1[i][j])) * (grad_q3u[i][j] * (q2[i][j] - q1[i][j])
+                                                                     - grad_q1d[i][j] * (q2[i][j] - q3[i][j]))
+                    grad_q2u[i][j] = -(1 / (q3[i][j] - q1[i][j])) * (grad_q3d[i][j] * (q2[i][j] - q1[i][j])
+                                                                     - grad_q1u[i][j] * (q2[i][j] - q3[i][j]))
                     delta_grad_q2 += (grad_q2u[i][j] - grad_q2d[i][j]) ** 2 / element_mass[i]
                     mom_direction_factor[i][j] = (grad_q2u[i][j] - grad_q2d[i][j]) / np.sqrt(element_mass[i])
                     F12 += grad_q2d[i][j] * grad_q2u[i][j]
@@ -598,7 +612,6 @@ def get_hop_factor(grad_q3d, grad_q3u, grad_q1d, grad_q1u, hop_direction):
     # calculate a^2 and b2
     f_aa = delta_grad_q2 / (16 * Vx ** 3)  # a.u. Reduced Planck constant =1
     f_bb = (total_energy[nloop - 1] - Ex) / (2 * Vx)
-    print(f_aa, f_bb,flush=True)
     if f_aa > 1000:
         hop_p = 1.0
     elif f_aa < 0.001:
@@ -610,7 +623,7 @@ def get_hop_factor(grad_q3d, grad_q3u, grad_q1d, grad_q1u, hop_direction):
         else:
             hop_p = np.exp(-np.pi / (4 * np.sqrt(f_aa)) *
                            np.sqrt(2 / (f_bb + np.sqrt(f_bb ** 2 - 1))))
-    
+    print("a^2, b^2, hop_p is %18.6f %18.6f %12.6f" %(f_aa, f_bb, hop_p ),flush=True)
     return hop_p, delta_grad_q2, mom_direction_factor, grad_q2d, grad_q2u
 
 
@@ -618,8 +631,8 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
     global dyn_states, nloop
     """
     Calculate every atom normalized momentum factor
-    s_i = \frac{\frac{F^2_i(q^2)-F^1_i(q^2)}{\sqrt{m_i}}}{\sqrt{\sum{\frac{(F^2_i-F^1_i)^2}{m_i}}}} 
-    hop direction 
+    s_i = \frac{\frac{F^2_i(q^2)-F^1_i(q^2)}{\sqrt{m_i}}}{\sqrt{\sum{\frac{(F^2_i-F^1_i)^2}{m_i}}}}
+    hop direction
     n_i = \frac{s_i}{|s_i|}
     increment factor k
     k = \sqrt{1+\frac{U_+(q^2)-U_-(q^2)}{\sum_{i=1}^{N}\frac{P_{i//}^2(+)}{2m_i}}}
@@ -628,13 +641,13 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
     hop_direction_matrix = mom_direction_factor / np.sqrt(delta_grad_q2)  # s_i
     kinetic_parallel = 0
     if hop_direction == 'D':
-        last_states = dyn_states - 1 
+        last_states = dyn_states - 1
     elif hop_direction == 'U':
         last_states = dyn_states + 1
     else:
         print("The hop direction is error")
         sys.exit()
-    delta_energy_q2 = potential_energy[nloop-1][dyn_states] - potential_energy[nloop-1][last_states]
+    delta_energy_q2 = potential_energy[nloop - 1][dyn_states] - potential_energy[nloop - 1][last_states]
     mom_parallel = np.zeros((natom, 3))
     mom_renew = np.zeros((natom, 3))
     # before the hopping
@@ -642,18 +655,18 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
         # n_i Normalized Si
         hop_direction_normal[i] = hop_direction_matrix[i] / np.linalg.norm(hop_direction_matrix[i])
         # p_parallel = (n_i . p_i) * n_i
-        mom_parallel[i] = np.dot(hop_direction_normal[i], momentum[nloop-1][i]) * hop_direction_normal[i]
-        #Parallel kinetic energy
+        mom_parallel[i] = np.dot(hop_direction_normal[i], momentum[nloop - 1][i]) * hop_direction_normal[i]
+        # Parallel kinetic energy
         kinetic_parallel += 0.50 * np.linalg.norm(mom_parallel[i]) ** 2 / element_mass[i]
-    if hop_direction == 'D': # higher state : e.g. S1->S0 k > 1
-        increment_k = np.sqrt(1 + delta_energy_q2 / kinetic_parallel) 
-    else: # hop_direction == 'U': Lower state - higher state e.g. :S1->S2 k < 1
+    if hop_direction == 'D':  # higher state : e.g. S1->S0 k > 1
+        increment_k = np.sqrt(1 + delta_energy_q2 / kinetic_parallel)
+    else:  # hop_direction == 'U': Lower state - higher state e.g. :S1->S2 k < 1
         increment_k = np.sqrt(1 - delta_energy_q2 / kinetic_parallel)
     print(increment_k)
     # delta_energy_q2 = potential_energy_q2(+) - potential_energy_q2(-)
     for i in range(natom):  # calculate the momentum after the hopping
-        mom_renew[i] = momentum[nloop-1][i] + (increment_k - 1) * \
-            np.dot(momentum[nloop-1][i], hop_direction_normal[i]) * hop_direction_normal[i]
+        mom_renew[i] = momentum[nloop - 1][i] + (increment_k - 1) * \
+                       np.dot(momentum[nloop - 1][i], hop_direction_normal[i]) * hop_direction_normal[i]
     print(hop_direction_matrix)
     print(hop_direction_normal)
     if hop_direction == 'D':
@@ -663,7 +676,7 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
     # record hop time
     hop_time.append(nloop - 1)
     # Modified state
-    renew_calc_states(dyn_states,inputfile)
+    renew_calc_states(dyn_states, inputfile)
     # delete q2 coordinate and momentum
     with open('simulation.xyz', 'r') as f:
         lines = f.readlines()
@@ -679,25 +692,25 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
     elif hop_direction == 'U':
         grad.append(grad_q2u)
     # delete q2 momentum  and renew q2 momentum
-    #check  q2 kinetic energy before and after hopping
+    # check  q2 kinetic energy before and after hopping
     q2_old_k = 0.0
     for i in range(natom):
-        q2_old_k += 0.5 * np.sum(momentum[nloop-1][i] ** 2) / element_mass[i]
+        q2_old_k += 0.5 * np.sum(momentum[nloop - 1][i] ** 2) / element_mass[i]
     momentum.pop()
     momentum.append(mom_renew)
-    q2_new_k = 0.0 
+    q2_new_k = 0.0
     for i in range(natom):
-        q2_new_k +=0.5 * np.sum(momentum[nloop-1][i] ** 2) / element_mass[i]
-    print(q2_old_k-q2_new_k)
+        q2_new_k += 0.5 * np.sum(momentum[nloop - 1][i] ** 2) / element_mass[i]
+    print(q2_old_k - q2_new_k)
     print(delta_energy_q2)
     # delete q3 coord
     coord.pop()
-    #delete q2 kinetic_energy /total_energy 
-    #kin_energy.pop()
-    #E_kine = calculate_kinetic()
-    #kin_energy.append(E_kine)
-    potential_energy.pop() #delete q3 potential
-    #total_energy is constant during the hopping 
+    # delete q2 kinetic_energy /total_energy
+    # kin_energy.pop()
+    # E_kine = calculate_kinetic()
+    # kin_energy.append(E_kine)
+    potential_energy.pop()  # delete q3 potential
+    # total_energy is constant during the hopping
     # recalculate/reprint q2  kinetic-energy potential-energy total energy
     with open('simulation.xyz', 'a+') as f:
         f.write(str(natom) + '\n')
@@ -710,7 +723,7 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
             mom = ''.join(format(x, '>18.10f')
                           for x in momentum[nloop - 1][i])
             f.write(ele + xyz + mom + '\n')
-    #recalculate q3 gradient potential_energy gradient q2 coordinate, gradient momentum
+    # recalculate q3 gradient potential_energy gradient q2 coordinate, gradient momentum
     coord.append(update_positon_matrix(
         coord[nloop - 1], momentum[nloop - 1], grad[nloop - 1], element_mass))
     replace_coordinate(coord[nloop])
@@ -718,9 +731,39 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
     analyse_result()
 
 
-def check_end():
+def check_result():
     # calculate bond length angle  dihedral
-    True
+    global SI_step_time, step_time, flag_gap
+    bond1 = [15, 16]
+    bond2 = [16, 13]
+    key1 = [coord[nloop][i - 1] * ang for i in bond1]
+    key2 = [coord[nloop][i - 1] * ang for i in bond2]
+    OH1 = Keyvalue(*key1)
+    OH2 = Keyvalue(*key2)
+    if not flag_gap:
+        if np.abs(OH1 - OH2) <= 0.100:
+            SI_step_time = 0.1
+            step_time = SI_step_time / fs
+            flag_gap = True
+    else:
+        if np.abs(OH1 - OH2) > 0.100:
+            SI_step_time = initail_step_time
+            step_time = SI_step_time / fs
+            flag_gap = False
+
+
+def MO_draw():
+    if dynamics_time <= 50.001 and nloop % 2 == 0:
+        filename1 = '62_' + format(dynamics_time, '.1f') + '.cub'
+        filename2 = '63_' + format(dynamics_time, '.1f') + '.cub'
+        os.system("formchk gauss.chk &> /dev/null ")
+        os.system("cubegen 0 mo=62 gauss.fchk %s 0 h &> /dev/null " % filename1)
+        os.system("cubegen 0 mo=62 gauss.fchk %s 0 h &> /dev/null " % filename2)
+        if not os.path.isdir('MO'):
+            os.mkdir('MO')
+        shutil.move(filename1,'./MO')
+        shutil.move(filename2,'./MO')
+        #os.system("ls MO &> /dev/null || mkdir MO && mv  %s %s MO/ " % (filename1, filename2))
 
 
 #    cal_value = []
@@ -746,6 +789,7 @@ def calculate_keyvalue():
         value.append(a)
     return value
 
+
 def calculate_kinetic():
     kine = 0.0
     for i in range(natom):
@@ -753,14 +797,14 @@ def calculate_kinetic():
     return kine
 
 
-def print_result():  
+def print_result():
     # print simulation.xyz
     # element  x y z px py pz .10f
     E_kine = calculate_kinetic()
     kin_energy.append(E_kine)
     total_energy.append(E_kine + scf_energy[nloop])
     print("The total/kinetic/poential energy(a.u.) %15.8f %15.8f %15.8f at the %6.2f fs"
-          % (total_energy[nloop], kin_energy[nloop], scf_energy[nloop], dynamics_time),flush=True)
+          % (total_energy[nloop], kin_energy[nloop], scf_energy[nloop], dynamics_time), flush=True)
     with open('simulation.xyz', 'a+') as f:
         f.write(str(natom) + '\n')
         f.write('simlulation time: t  =' +
@@ -786,8 +830,8 @@ def print_result():
     with open('traj_coord.log', 'a+') as f:
         f.write('{:<12.2f}'.format(dynamics_time))
         for label in atom_list:
-             c = [coord[nloop][i-1] * ang for i in label]
-             f.write('{:<12.4f}'.format(Keyvalue(*c)))
+            c = [coord[nloop][i - 1] * ang for i in label]
+            f.write('{:<12.4f}'.format(Keyvalue(*c)))
         f.write('\n')
 
 
@@ -795,7 +839,7 @@ def main():
     basis_constant()
     set_var()
     check_initial()
-    get_initail_codition()#read coordinates from initial condition
+    get_initail_codition()  # read coordinates from initial condition
     replace_coordinate(coord[0])
     global dynamics_time, nloop
     while dynamics_time <= total_time:
@@ -805,14 +849,17 @@ def main():
         analyse_result()
         if nloop >= 2:
             check_hopping()
-        check_end()
+        check_result()
         on_the_fly()
         print_result()
+        MO_draw()
         replace_coordinate(coord[nloop + 1])
         print("Trajectory calculation of step %s loop end at the %5.2f fs (%s)\n\n" % (
             nloop, dynamics_time, current_time()), flush=True)
         nloop += 1
         dynamics_time += SI_step_time
+    print("The dynamics program has ended at the %5.2f fs (%s)\n\n" %(dynamics_time, current_time), flush=True)
+
 
 if __name__ == "__main__":
     main()
