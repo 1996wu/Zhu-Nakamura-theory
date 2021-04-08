@@ -85,13 +85,14 @@ def check_initial():
                 print("Plase use detailed output(#P) ")
                 sys.exit()
             if not flag_f:
-                print("Plase use key value 'force'")
+                print("Please use key value 'force'")
                 sys.exit()
-            if not flag_r:
-                print("Plase usek key value 'root'")
-                sys.exit()
+        #if  states_involved >= 2:
+        #    if not flag_r:
+        #        print("Please use key value 'root'")
+        #        sys.exit()
     else:
-        print("gauss.gjf is not found, plase check *.gjf filename again")
+        print("gauss.gjf is not found, please check *.gjf filename again")
         sys.exit()
     if os.path.isfile("initial_condition"):
         with open("initial_condition", 'r') as f:
@@ -101,10 +102,10 @@ def check_initial():
                 else:
                     if len(line.split()) != 7:
                         print(
-                            "Plase check the format of 'initial_condition' (elem x y z px py pz)")
+                            "Please check the format of 'initial_condition' (elem x y z px py pz)")
                         sys.exit()
     else:
-        print("'initial_condition' is not found ,plase check it again")
+        print("'initial_condition' is not found ,please check it again")
 
 
 def _get_keyword(filename='gauss.gjf'):
@@ -135,7 +136,7 @@ def get_grad_matrix(filename, natom):
                         count += 1
                     else:
                         data.append(list(map(float, line.split()[2:])))
-                        if (len(data) == natom):  # mathch line
+                        if len(data) == natom:  # mathch line
                             break
             else:
                 addflag = True
@@ -152,8 +153,8 @@ def get_energy(filename):
     regex_1 = re.compile('Excitation Energies \[eV] at current iteration:')
     regex_2 = re.compile('Convergence achieved on expansion vectors')
     regex_3 = re.compile('Total Energy')
-    #regex_4 = re.compile('(?<=\s*Excited State\s*[0-9]*\s*:\s*)(Triplet|Singlet)')
-    regex_4 = re.compile('Excited State\s*[0-9]*\s*:')
+    #regex_4 = re.compile('?<=(Excited State(\s{3}[1-9]|\s{2}1[0-9]):\s{6})(Triplet|Singlet)')
+    #regex_4 = re.compile('Excited State\s*[0-9]*\s*:')
     energy = []
     tmp = []
     E_ground = 0.0
@@ -196,7 +197,7 @@ def get_energy(filename):
     return sorted(energy), E_total
 
 
-def renew_calc_states(Nstate, filename, filename_new=None):
+def renew_calc_states(nstate, filename, filename_new=None):
     """
     This is the function to adjust the interested state
     e.g. S2-S1 ,S1-S0, S0-S2
@@ -221,10 +222,10 @@ def renew_calc_states(Nstate, filename, filename_new=None):
                 if not regex.search(line):
                     f_new.write(line)
                 else:
-                    if Nstate == 0:
+                    if nstate == 0:
                         f_new.write(re.sub(regex, '', line))
                     else:
-                        f_new.write(re.sub(regex_1, str(Nstate), line))
+                        f_new.write(re.sub(regex_1, str(nstate), line))
     else:  # S0-> the excited states
         regex_2 = re.compile('force', re.IGNORECASE)
         with open(filename, 'r') as f,  open(filename_new, 'w+') as f_new:
@@ -273,11 +274,11 @@ def analyse_result(filename='gauss.log'):
     return flag
 
 
-def print_traj_cicoe(time, filename='gauss.log'):
+def print_traj_cicoe(time,filename='gauss.log'):
     with open('traj_cicoe.log', 'a+') as f:
         regex = re.compile('Excited State\s*[0-9]*:')
         regex_1 = re.compile('SavETr')
-        f.write('simlulation time: t=' +
+        f.write('simulation time: t=' +
                 format(time, '>10.2f') + '\n')
         f.write('\n')
         addflag = False
