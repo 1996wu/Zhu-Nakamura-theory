@@ -1,1 +1,1 @@
-g16 gauss.gjf
+g16  gauss.gjf
