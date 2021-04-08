@@ -1,5 +1,5 @@
 #Initialize time, delta time, total_time(SI)
-29.0,  0.50,  500.0
+0.00,  0.50,  500.0
 #the current loop time 
 0
 # total state,current states(S1->1, S0->0),states_max, states_min
