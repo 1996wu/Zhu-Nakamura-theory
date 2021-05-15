@@ -23,15 +23,11 @@ def current_time():
 
 
 def software_running(filename='gauss.gjf'):
-    if os.path.isfile("gaussian.sh"):
-        print("The Gaussian begin running at %s" % current_time(), flush=True)
-        os.system(r"sed -i 's/\(g16\).*/\1  %s/' gaussian.sh " % filename)
-        os.system("./gaussian.sh  ")
-        print("The Gaussian ended at %s" % current_time(), flush=True)
-    else:
-        print("Gaussian  script is not found \n dynamic program has end at %s" %
-              current_time())
-        sys.exit()
+    print("The Gaussian begin running at %s" % current_time(), flush=True)
+    file = 'g16  ' + filename
+    proc = subprocess.Popen(file, shell=True)
+    proc.wait()
+    print("The Gaussian ended at %s" % current_time(), flush=True)
 
 
 def read_wavefunction(filename='gauss.gjf'):
