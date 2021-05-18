@@ -1,4 +1,4 @@
-#!/home/gjzhao/tj/zbwu/conda3/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """
