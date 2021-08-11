@@ -2,12 +2,13 @@ import os
 import re
 import sys
 import time
-
+import subprocess
 import numpy as np
 
-eV = 27.21138602
-ang = 0.529177257507
-numlti = {'Singlet': 1,
+ang = 0.529177210903
+eV = 27.211386245988
+
+nmulti = {'Singlet': 1,
           'Doublet': 2,
           'Triplet': 3,
           'Quartet': 4,
@@ -30,6 +31,18 @@ def software_running(filename='gauss.gjf'):
     print("The Gaussian ended at %s" % current_time(), flush=True)
 
 
+# def software_running(filename='gauss.gjf'):
+#     if os.path.isfile("gaussian.sh"):
+#         print("The Gaussian begin running at %s" % current_time(), flush=True)
+#         os.system(r"sed -i 's/\(g16\).*/\1  %s/' gaussian.sh " % filename)
+#         os.system("./gaussian.sh  ")
+#         print("The Gaussian ended at %s" % current_time(), flush=True)
+#     else:
+#         print("Gaussian  script is not found \n dynamic program has end at %s" %
+#               current_time())
+#         sys.exit()
+
+
 def read_wavefunction(filename='gauss.gjf'):
     flag_chk = False
     with open(filename, 'r') as f:
@@ -45,7 +58,7 @@ def read_wavefunction(filename='gauss.gjf'):
                 if not flag_chk:
                     line = re.sub('\r?\n', '', line).strip()
                     f_new.write(
-                        line + ' '+'geom=allcheck ' + '\n')
+                        line + ' ' + 'geom=allcheck ' + '\n')
                 else:
                     f_new.write(line)
     os.remove(filename)
@@ -75,15 +88,15 @@ def check_initial():
                     flag_p = True
                 if re.search("force", line, re.IGNORECASE):
                     flag_f = True
-                if re.search("root", line, re.IGNORECASE):
-                    flag_r = True
+                # e.search("root", line, re.IGNORECASE):
+                # flag_r = True
             if not flag_p:
-                print("Plase use detailed output(#P) ")
+                print("Please use detailed output(#P) ")
                 sys.exit()
             if not flag_f:
                 print("Please use key value 'force'")
                 sys.exit()
-        #if  states_involved >= 2:
+        # if  states_involved >= 2:
         #    if not flag_r:
         #        print("Please use key value 'root'")
         #        sys.exit()
@@ -119,7 +132,7 @@ def _get_keyword(filename='gauss.gjf'):
 word = _get_keyword()
 
 
-def get_grad_matrix(filename, natom):
+def get_grad_matrix(filename='gauss.log'):
     regex = re.compile('Forces \(Hartrees/Bohr\)')
     data = []
     addflag = False
@@ -131,9 +144,10 @@ def get_grad_matrix(filename, natom):
                     if count < 2:
                         count += 1
                     else:
-                        data.append(list(map(float, line.split()[2:])))
-                        if len(data) == natom:  # mathch line
+                        if '---' in line:
                             break
+                        else:
+                            data.append(list(map(float, line.split()[2:])))
             else:
                 addflag = True
     # the gradient is opposite to the direction of force
@@ -141,7 +155,7 @@ def get_grad_matrix(filename, natom):
     return gradient_matrix
 
 
-def get_energy(filename):
+def get_energy(filename='gauss.log'):
     """
     get S0/the excited stated energy from detailed output file. 
     """
@@ -149,8 +163,8 @@ def get_energy(filename):
     regex_1 = re.compile('Excitation Energies \[eV] at current iteration:')
     regex_2 = re.compile('Convergence achieved on expansion vectors')
     regex_3 = re.compile('Total Energy')
-    #regex_4 = re.compile('?<=(Excited State(\s{3}[1-9]|\s{2}1[0-9]):\s{6})(Triplet|Singlet)')
-    #regex_4 = re.compile('Excited State\s*[0-9]*\s*:')
+    # regex_4 = re.compile('?<=(Excited State(\s{3}[1-9]|\s{2}1[0-9]):\s{6})(Triplet|Singlet)')
+    # regex_4 = re.compile('Excited State\s*[0-9]*\s*:')
     energy = []
     tmp = []
     E_ground = 0.0
@@ -158,8 +172,8 @@ def get_energy(filename):
     flag_g = True
     flag_e = False
     flag_c = False
-    #nmulti = [ ]
-    #nstate = [ ]
+    # nmulti = [ ]
+    # nstate = [ ]
     with open(filename, 'r') as f:
         for line in f:
             if flag_g:
@@ -172,12 +186,13 @@ def get_energy(filename):
                     if regex_3.search(line):
                         E_total = float(line.split()[4])
                     # if regex_4.search(line):
-                     #   nmulti.append(line.split()[3][:-2])
+                    #   nmulti.append(line.split()[3][:-2])
                 else:
                     if flag_e:
                         if regex_2.search(line):
                             flag_c = True
                             for i in tmp:
+                                # get every states energy/eV
                                 energy.append(
                                     float(i.split()[3]) / eV + E_ground)
                         else:
@@ -193,7 +208,7 @@ def get_energy(filename):
     return sorted(energy), E_total
 
 
-def renew_calc_states(nstate, filename, filename_new=None):
+def renew_calc_states(nstate, filename='gauss.gjf', filename_new=None):
     """
     This is the function to adjust the interested state
     e.g. S2-S1 ,S1-S0, S0-S2
@@ -224,14 +239,14 @@ def renew_calc_states(nstate, filename, filename_new=None):
                         f_new.write(re.sub(regex_1, str(nstate), line))
     else:  # S0-> the excited states
         regex_2 = re.compile('force', re.IGNORECASE)
-        with open(filename, 'r') as f,  open(filename_new, 'w+') as f_new:
+        with open(filename, 'r') as f, open(filename_new, 'w+') as f_new:
             for line in f:
                 if not regex_2.search(line):
                     f_new.write(line)
                 else:
                     line = re.sub('\r?\n', '', line).strip()
                     WORD = re.sub(regex_1, '1', word)
-                    f_new.write(line + ' '+WORD + '\n')
+                    f_new.write(line + ' ' + WORD + '\n')
     if flag:
         os.remove(filename)
         os.rename(filename_new, filename)
@@ -270,12 +285,14 @@ def analyse_result(filename='gauss.log'):
     return flag
 
 
-def print_traj_cicoe(time,filename='gauss.log'):
+def print_traj_cicoe(time, filename='gauss.log', flag: bool = True):
     with open('traj_cicoe.log', 'a+') as f:
         regex = re.compile('Excited State\s*[0-9]*:')
         regex_1 = re.compile('SavETr')
-        f.write('simulation time: t=' +
-                format(time, '>10.2f') + '\n')
+        if flag:
+            f.write('simulation time: t=' + format(time, '>10.2f') + '\n')
+        else:
+            f.write('simulation time: t=' + format(time, '>10d') + '\n')
         f.write('\n')
         addflag = False
         with open(filename, 'r+') as f_1:
