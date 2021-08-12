@@ -1,46 +1,30 @@
-import os
+# This is some function which could deal with GAUSSIAN16 
+# eg: run GAUSSIAN16 software： software_running()
+# eg: get gradient matrix (3 * N_atom): get_grad_matrix()
+# eg: change keyword in the GAUSSIAN input file : renew_calc_states()
+# eg: replace_coordinate()
+# eg: print_traj_cicoe()
+# Author: zibo wu <zbwu1996@gmail.com>
+
 import re
 import sys
 import time
 import subprocess
 import numpy as np
+import os 
 
 ang = 0.529177210903
 eV = 27.211386245988
 
-nmulti = {'Singlet': 1,
-          'Doublet': 2,
-          'Triplet': 3,
-          'Quartet': 4,
-          'Quintet': 5,
-          'Sextet': 6,
-          'Septet': 7,
-          'Octet': 8
-          }
-
-
-def current_time():
-    return time.asctime(time.localtime(time.time()))
-
 
 def software_running(filename='gauss.gjf'):
+    def current_time():
+        return time.asctime(time.localtime(time.time()))
     print("The Gaussian begin running at %s" % current_time(), flush=True)
-    file = 'g16  ' + filename
+    file = 'g16 ' + filename
     proc = subprocess.Popen(file, shell=True)
     proc.wait()
     print("The Gaussian ended at %s" % current_time(), flush=True)
-
-
-# def software_running(filename='gauss.gjf'):
-#     if os.path.isfile("gaussian.sh"):
-#         print("The Gaussian begin running at %s" % current_time(), flush=True)
-#         os.system(r"sed -i 's/\(g16\).*/\1  %s/' gaussian.sh " % filename)
-#         os.system("./gaussian.sh  ")
-#         print("The Gaussian ended at %s" % current_time(), flush=True)
-#     else:
-#         print("Gaussian  script is not found \n dynamic program has end at %s" %
-#               current_time())
-#         sys.exit()
 
 
 def read_wavefunction(filename='gauss.gjf'):
@@ -96,10 +80,6 @@ def check_initial():
             if not flag_f:
                 print("Please use key value 'force'")
                 sys.exit()
-        # if  states_involved >= 2:
-        #    if not flag_r:
-        #        print("Please use key value 'root'")
-        #        sys.exit()
     else:
         print("gauss.gjf is not found, please check *.gjf filename again")
         sys.exit()
@@ -163,8 +143,6 @@ def get_energy(filename='gauss.log'):
     regex_1 = re.compile('Excitation Energies \[eV] at current iteration:')
     regex_2 = re.compile('Convergence achieved on expansion vectors')
     regex_3 = re.compile('Total Energy')
-    # regex_4 = re.compile('?<=(Excited State(\s{3}[1-9]|\s{2}1[0-9]):\s{6})(Triplet|Singlet)')
-    # regex_4 = re.compile('Excited State\s*[0-9]*\s*:')
     energy = []
     tmp = []
     E_ground = 0.0
@@ -172,8 +150,6 @@ def get_energy(filename='gauss.log'):
     flag_g = True
     flag_e = False
     flag_c = False
-    # nmulti = [ ]
-    # nstate = [ ]
     with open(filename, 'r') as f:
         for line in f:
             if flag_g:
@@ -185,8 +161,6 @@ def get_energy(filename='gauss.log'):
                 if flag_c:  # excited states iteration done
                     if regex_3.search(line):
                         E_total = float(line.split()[4])
-                    # if regex_4.search(line):
-                    #   nmulti.append(line.split()[3][:-2])
                 else:
                     if flag_e:
                         if regex_2.search(line):
@@ -208,55 +182,86 @@ def get_energy(filename='gauss.log'):
     return sorted(energy), E_total
 
 
-def renew_calc_states(nstate, filename='gauss.gjf', filename_new=None):
+def renew_calc_states(nstate, filename='gauss.gjf', filename_new=None, st=None, spin=None, charge=None, remove=None, add=None):
     """
-    This is the function to adjust the interested state
-    e.g. S2-S1 ,S1-S0, S0-S2
+    This is the function to adjust the interested state,spin-multiplicity and charge
+    e.g. S2-S1 ,S1-S0, S0-S2, S0-T1
     when the input file is the ground state(S0),
-    it will write the previous keywords to calculate the excited state energy
+    it will read the previous keywords to calculate the excited state energy
     """
-    # regex assertion (?<=)
-    regex_1 = re.compile('(?<=root=)[0-9]+', re.IGNORECASE)
-    regex = re.compile('(tda?=?\(.*?\)|tda)', re.IGNORECASE)
-    flag = False
+    regex_td = re.compile('(tda?=?\(.*?\)|tda)', re.IGNORECASE)
+    regex_root = re.compile('(?<=root=)[0-9]+', re.IGNORECASE)
+    regex_st = re.compile("singlets|triplets|50-50", re.IGNORECASE)
+    regex_spin = re.compile("^\s*?-?[0-9]\s+[1-9]\s*$")
     flag_td = False
+    flag_keyword = False
+    flag_file = False
+    ST = {'S': 'singlets', 'T': 'triplets', 'ST': '50-50'}
     with open(filename) as f:
         for line in f:
-            if regex.search(line):
+            if regex_td.search(line):
                 flag_td = True
+                break
     if not filename_new:
-        flag = True
+        flag_file = True
         filename_new = "%s.bak" % filename
-    if flag_td:
-        with open(filename, 'r') as f, open(filename_new, 'w+') as f_new:
-            for line in f:
-                if not regex.search(line):
-                    f_new.write(line)
-                else:
-                    if nstate == 0:
-                        f_new.write(re.sub(regex, '', line))
+    with open(filename, 'r') as f, open(filename_new, 'w+') as f_new:
+        for line in f:
+            if re.search('#(p|P|s|S)?', line):
+                flag_keyword = True
+            if line.isspace():
+                if flag_keyword:
+                    flag_keyword = False
+            if flag_keyword: #change the key word
+                if flag_td:
+                    if nstate == 0:  # excited states -> ground states
+                        line = re.sub(regex_td, '', line)
                     else:
-                        f_new.write(re.sub(regex_1, str(nstate), line))
-    else:  # S0-> the excited states
-        regex_2 = re.compile('force', re.IGNORECASE)
-        with open(filename, 'r') as f, open(filename_new, 'w+') as f_new:
-            for line in f:
-                if not regex_2.search(line):
-                    f_new.write(line)
-                else:
-                    line = re.sub('\r?\n', '', line).strip()
-                    WORD = re.sub(regex_1, '1', word)
-                    f_new.write(line + ' ' + WORD + '\n')
-    if flag:
+                        line = re.sub(regex_root, str(nstate), line)
+                else:  # ground states -> the excited states
+                    if re.search('#(p|P|s|S)?', line):
+                        if nstate >= 1:
+                            line = re.sub('\r?\n', '', line).strip()
+                            WORD = re.sub(regex_root, str(nstate), word)
+                            line = line + ' ' + WORD + '\n'
+                if st:  # change the singlet/Triplets excited states for closed-shell systems
+                    if re.search(regex_td, line):
+                        if re.search(regex_st, line):
+                            line = re.sub(regex_st, ST[st], line)
+                        else:
+                            LINE = re.search(
+                                "tda?=\(", line).group() + ST[st] + ","
+                            line = re.sub("tda?=\(", LINE, line, re.IGNORECASE)
+                if remove:
+                    if re.search(remove, line, re.IGNORECASE):
+                        line = re.sub(remove, line)
+                if add:
+                    if re.search('#(p|P|s|S)?', line):
+                        line = re.sub('\r?\n', '', line).strip()
+                        line = line + " " + add + '\n'
+            else:
+                if regex_spin.search(line):
+                    c, s = [int(i) for i in line.split()]
+                    if not charge:
+                        charge = c
+                    if not spin:
+                        spin = s
+                    line = str(charge) + " " + str(spin) + "\n"
+            f_new.write(line)
+    if flag_file:
         os.remove(filename)
         os.rename(filename_new, filename)
 
 
-def replace_coordinate(new_coordinate, filename='gauss.gjf', ):
+def replace_coordinate(new_coordinate, filename='gauss.gjf',filename_new=None):
     regex = re.compile('[A-Za-z]{1,2}\s*(\s*(-?[0-9]+\.[0-9]*)){3}')
     regex_1 = re.compile('(\s*(-?[0-9]+\.[0-9]*)){3}')
     count = 0
-    with open(filename, 'r') as f, open("%s.bak" % filename, 'w+') as f_new:
+    flag_file = False
+    if not filename_new:
+        flag_file = True
+        filename_new = "%s.bak" %filename
+    with open(filename, 'r') as f, open(filename_new, 'w+') as f_new:
         for n, line in enumerate(f):
             if not regex.findall(line):
                 f_new.write(line)
@@ -265,8 +270,10 @@ def replace_coordinate(new_coordinate, filename='gauss.gjf', ):
                                         for i in new_coordinate[count][:3])
                 f_new.write(re.sub(regex_1, replace_coord, line))
                 count += 1
-    os.remove(filename)
-    os.rename("%s.bak" % filename, filename)
+    if flag_file:
+        os.remove(filename)
+        os.rename(filename_new, filename)
+        
 
 
 def analyse_result(filename='gauss.log'):
