@@ -16,6 +16,9 @@ import os
 ang = 0.529177210903
 eV = 27.211386245988
 
+__all__ = ["software_running","read_wavefunction", "delete_wavefunction", "check_initial",
+            "get_grad_matrix", "replace_coordinate", "renew_calc_states", "analyse_result"
+            "print_traj_cicoe"]
 
 def software_running(filename='gauss.gjf'):
     def current_time():
