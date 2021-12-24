@@ -20,7 +20,7 @@
 import os
 import shutil
 import sys
-
+import timn 
 import numpy as np
 
 # All units in the code are a.u./hartree
@@ -740,11 +740,15 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
     q2_new_k = calculate_kinetic(momentum[nloop - 1])
     # for i in range(natom):
     #     q2_new_k += 0.5 * np.sum(momentum[nloop - 1][i] ** 2) / element_mass[i]
-    print(q2_old_k, q2_new_k)
-    print(q2_old_k - q2_new_k)
-    print(delta_energy_q2)
-    print("\n")
-    print(kin_energy[nloop - 1])
+    # print(q2_old_k, q2_new_k)
+    # print(q2_old_k - q2_new_k)
+    # print(delta_energy_q2)
+    # print("\n")
+    # print(kin_energy[nloop - 1])
+    print("The q2 old kinetic energy is %s" %(q2_old_k), flush=True)
+    print("The q2 new kinetic energy is %s" %(q2_new_k), flush=True)
+    print("The kinetic energy difference is %s" %(q2_old_k - q2_new_k), flush=True)
+    print("The energy difference is %s" %(delta_energy_q2), flush=True )
     # delete q3 coord
     coord.pop()
     # delete q2 kinetic_energy /total_energy
@@ -789,7 +793,7 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
         f_new.writelines(lines[:-1])
         energy_involved = ''.join(
             format(potential_energy[nloop - 1][i], '>18.8f') for i in range(states_involved))
-        test = '{:<8.2f}{:>18.8f}{:>18.8f}{:>18.8f}'.format(dynamics_time, total_energy[nloop - 1],
+        test = '{:<8.2f}{:>18.8f}{:>18.8f}{:>18.8f}'.format(dynamics_time - SI_step_time, total_energy[nloop - 1],
                                                             potential_energy[nloop - 1][dyn_states], kin_energy[nloop - 1])
         f_new.write(test + '     ' + energy_involved + '\n')
     os.remove('traj_energy.log')
