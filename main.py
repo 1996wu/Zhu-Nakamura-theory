@@ -900,7 +900,7 @@ def print_result():
         f.write('{:<12.2f}'.format(dynamics_time))
         for label in atom_list:
             c = [coord[nloop][i - 1] * ang for i in label]
-            f.write('{:<12.4f}'.format(critical_value(*c)))
+            f.write('{:>12.4f}'.format(critical_value(*c)))
         f.write('\n')
 
 
