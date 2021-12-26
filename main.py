@@ -250,13 +250,14 @@ def analyse_result(filename=None):
               current_time(), flush=True)
         read_wavefunction()
         # Get the keywords of the previous input file
-        renew_calc_states(states_involved, inputfile)
+        # renew_calc_states(states_involved, inputfile) # ********
+        renew_calc_states(states_involved -1, inputfile,remove="force") # root=states_involved -1
         software_running()
         E_exc, E_scf = get_energy()
         # get the excited stated excited energy
         potential_energy.append(E_exc)
         delete_wavefunction()
-        renew_calc_states(dyn_states, inputfile)
+        renew_calc_states(dyn_states, inputfile, add="force")
 
 
 """
