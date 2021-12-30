@@ -8,3 +8,5 @@
 1
 #energy difference between two states (unit eV) 
 0.30
+# Constraint the center of mass ,(Y/y->yes, others->no)
+n
