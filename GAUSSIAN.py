@@ -1,4 +1,4 @@
-# This is some function which could deal with GAUSSIAN16 
+# This is some function which could deal with GAUSSIAN16
 # eg: run GAUSSIAN16 software： software_running()
 # eg: get gradient matrix (3 * N_atom): get_grad_matrix()
 # eg: change keyword in the GAUSSIAN input file : renew_calc_states()
@@ -11,22 +11,37 @@ import sys
 import time
 import subprocess
 import numpy as np
-import os 
+import os
 
 ang = 0.529177210903
 eV = 27.211386245988
 
-__all__ = ["software_running","read_wavefunction", "delete_wavefunction", "check_initial",
-            "get_grad_matrix", "get_energy","replace_coordinate", "renew_calc_states", "analyse_result"
-            "print_traj_cicoe"]
+__all__ = ["software_running", "read_wavefunction", "delete_wavefunction", "check_initial",
+           "get_grad_matrix", "get_energy", "replace_coordinate", "renew_calc_states", "print_traj_cicoe"]
+
+
+try:
+    with open("GaussianPath", "r") as f:
+        for line in f:
+            gaussian_path = line.split()[0]
+            break
+except:
+    print("The Gaussian path of file is not found, try find Gaussian path from environment(which g16).")
+    path = subprocess.run("which g16", shell=True,
+                          stdout=subprocess.PIPE, text=True)
+    gaussian_path = path.stdout.replace("\n", "")
+
 
 def software_running(filename='gauss.gjf'):
     def current_time():
         return time.asctime(time.localtime(time.time()))
+    prefix = filename.split(".")[0]
     print("The Gaussian begin running at %s" % current_time(), flush=True)
-    file = 'g16 ' + filename
+    file = gaussian_path +" "+ filename
     proc = subprocess.Popen(file, shell=True)
     proc.wait()
+    output = prefix + ".log"
+    analyse_result(filename=output)
     print("The Gaussian ended at %s" % current_time(), flush=True)
 
 
@@ -64,7 +79,7 @@ def delete_wavefunction(filename='gauss.gjf'):
     os.rename("%s.bak" % filename, filename)
 
 
-def check_initial():
+def check_initial(nstates=1):
     if os.path.isfile("gauss.gjf"):
         flag_f = False
         flag_p = False
@@ -77,27 +92,20 @@ def check_initial():
                     flag_f = True
                 # e.search("root", line, re.IGNORECASE):
                 # flag_r = True
+                if re.search(r'(?<=root=)%s' % nstates, line, re.IGNORECASE):
+                    flag_r = True
             if not flag_p:
                 print("Please use detailed output(#P) ")
                 sys.exit()
             if not flag_f:
                 print("Please use key value 'force'")
                 sys.exit()
+            if not flag_r:
+                print("Please check root=%s in gauss.gjf" % nstates)
+                sys.exit()
     else:
         print("gauss.gjf is not found, please check *.gjf filename again")
         sys.exit()
-    if os.path.isfile("initial_condition"):
-        with open("initial_condition", 'r') as f:
-            for line in f:
-                if len(line.split()) == 0:
-                    continue
-                else:
-                    if len(line.split()) != 7:
-                        print(
-                            "Please check the format of 'initial_condition' (elem x y z px py pz)")
-                        sys.exit()
-    else:
-        print("'initial_condition' is not found ,please check it again")
 
 
 def _get_keyword(filename='gauss.gjf'):
@@ -215,7 +223,7 @@ def renew_calc_states(nstate, filename='gauss.gjf', filename_new=None, st=None, 
             if line.isspace():
                 if flag_keyword:
                     flag_keyword = False
-            if flag_keyword: #change the key word
+            if flag_keyword:  # change the key word
                 if flag_td:
                     if nstate == 0:  # excited states -> ground states
                         line = re.sub(regex_td, '', line)
@@ -235,10 +243,10 @@ def renew_calc_states(nstate, filename='gauss.gjf', filename_new=None, st=None, 
                             LINE = re.search(
                                 "tda?=\(", line).group() + ST[st] + ","
                             line = re.sub("tda?=\(", LINE, line, re.IGNORECASE)
-                if remove:
+                if remove:  # remvoe keywords
                     if re.search(remove, line, re.IGNORECASE):
-                        line = re.sub(remove, line)
-                if add:
+                        line = re.sub(remove, "", line)
+                if add:  # add others keywords
                     if re.search('#(p|P|s|S)?', line):
                         line = re.sub('\r?\n', '', line).strip()
                         line = line + " " + add + '\n'
@@ -256,14 +264,14 @@ def renew_calc_states(nstate, filename='gauss.gjf', filename_new=None, st=None, 
         os.rename(filename_new, filename)
 
 
-def replace_coordinate(new_coordinate, filename='gauss.gjf',filename_new=None):
+def replace_coordinate(new_coordinate, filename='gauss.gjf', filename_new=None):
     regex = re.compile('[A-Za-z]{1,2}\s*(\s*(-?[0-9]+\.[0-9]*)){3}')
     regex_1 = re.compile('(\s*(-?[0-9]+\.[0-9]*)){3}')
     count = 0
     flag_file = False
     if not filename_new:
         flag_file = True
-        filename_new = "%s.bak" %filename
+        filename_new = "%s.bak" % filename
     with open(filename, 'r') as f, open(filename_new, 'w+') as f_new:
         for n, line in enumerate(f):
             if not regex.findall(line):
@@ -276,23 +284,18 @@ def replace_coordinate(new_coordinate, filename='gauss.gjf',filename_new=None):
     if flag_file:
         os.remove(filename)
         os.rename(filename_new, filename)
-        
 
 
 def analyse_result(filename='gauss.log'):
     regex = re.compile('Error termination')
     regex_1 = re.compile('Excited State\s*[0-9]*:')
-    flag = False
     with open(filename, 'r') as f:
         for line in f:
             if regex.search(line):
-                print('Gaussian possible convergence error', flag=True)
-                flag = True
+                raise Exception('Gaussian maybe convergence error')
             if regex_1.search(line):
                 if float(line.split()[4]) < 0:
-                    print('Excitation energy is negative', flush=True)
-                    flag = True
-    return flag
+                    raise Exception('Excitation energy is negative')
 
 
 def print_traj_cicoe(time, filename='gauss.log', flag: bool = True):
