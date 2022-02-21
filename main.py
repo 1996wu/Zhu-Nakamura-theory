@@ -152,7 +152,7 @@ def save_wavefunction():
         else:
             shutil.copy("q2." + c, "q1." + c)
             shutil.copy("q3." + c, "q2." + c)
-            shutil.copy(wfnfile, "q3." + suffix)
+            shutil.copy(wfnfile, "q3." + c)
 
 
 def check_hopping():  # when nloop >=2,begin check hopping
