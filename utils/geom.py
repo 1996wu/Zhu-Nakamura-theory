@@ -1,10 +1,13 @@
-import numpy as np
 import copy
+import re
+import os 
+import numpy as np
 
-from interface.prepare import flag_rot, natom, element_mass
+from interface.prepare import flag_rot, natom, element_mass, element
 
-__all__ = ["critical_value", "coord_mom_rot", "coord_corrections", "mom_corrections",
-           "calculate_kinetic"]
+__all__ = ["critical_value", "coord_corrections", "mom_corrections",
+           "calculate_kinetic", "print_matrix", "replace_coord"]
+ang = 0.529177257507
 
 
 def critical_value(*args):
@@ -97,8 +100,37 @@ def mom_corrections(mom1, mom2):
     return new_mom
 
 
+def replace_coord(new_coordinate, filename, filename_new=None):
+    regex = re.compile('[A-Za-z]{1,2}\s*(\s*(-?[0-9]+\.[0-9]*)){3}')
+    regex_1 = re.compile('(\s*(-?[0-9]+\.[0-9]*)){3}')
+    count = 0
+    flag_file = False
+    if not filename_new:
+        flag_file = True
+        filename_new = "%s.bak" % filename
+    with open(filename, 'r') as f, open(filename_new, 'w+') as f_new:
+        for n, line in enumerate(f):
+            if not regex.findall(line):
+                f_new.write(line)
+            else:
+                new_coord = ''.join(format(i * ang, '>18.10f')
+                                    for i in new_coordinate[count][:3])
+                f_new.write(re.sub(regex_1, new_coord, line))
+                count += 1
+    if flag_file:
+        os.remove(filename)
+        os.rename(filename_new, filename)
+
+
 def calculate_kinetic(mom):
     kine = 0.0
     for i in range(natom):
         kine += 0.5 * np.sum(mom[i] ** 2) / element_mass[i]
     return kine
+
+
+def print_matrix(value):
+    for i in range(natom):
+        ele = format(element[i], '<5s')
+        xyz = "".join(format(x, '>18.10f') for x in value[i])
+        print(ele + xyz, flush=True)

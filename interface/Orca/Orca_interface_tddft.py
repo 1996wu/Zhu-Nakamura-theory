@@ -1,12 +1,8 @@
 import os
 import re
+
 import numpy as np
-import sys
-from abc import ABC, abstractmethod
 
-
-from ..prepare import soft
-from ..prepare import output_suffix, input_suffix, input_prefix
 from ..PublicFunction import PublicFunction
 
 eV = 27.21138602
@@ -191,7 +187,7 @@ class Orca(PublicFunction):
                         if n == key_line + 1:
                             # write in the after of keyword(!)
                             old_line = re.sub(
-                                'iroot\s+[0-9]+', "iroot  %s" % nstates, word, flags=re.IGNORECASE)
+                                'iroot\s+[0-9]+', "iroot  %s" % nstates, _td_keyword, flags=re.IGNORECASE)
                             line = old_line + line
                 f_new.write(line)
 
@@ -199,22 +195,26 @@ class Orca(PublicFunction):
             os.remove(filename)
             os.rename(filename_new, filename)
 
-    def keyword(self, filename):
-        regex = re.compile("%TDDFT", re.IGNORECASE)
-        key = []
-        flag_td = False
-        # %TDDFT Nroot 5
-        #        iroot 1
-        #        tda false
-        #        end
-        with open(filename, 'r') as f:
-            for line in f:
-                if not flag_td:
-                    if regex.search(line):
-                        key.append(line)
-                        flag_td = True
-                else:
+
+def keyword(filename):
+    regex = re.compile("%TDDFT", re.IGNORECASE)
+    key = []
+    flag_td = False
+    # %TDDFT Nroot 5
+    #        iroot 1
+    #        tda false
+    #        end
+    with open(filename, 'r') as f:
+        for line in f:
+            if not flag_td:
+                if regex.search(line):
                     key.append(line)
-                    if re.findall("end", line, re.IGNORECASE):
-                        break
-        return "".join(x for x in key)
+                    flag_td = True
+            else:
+                key.append(line)
+                if re.findall("end", line, re.IGNORECASE):
+                    break
+    return "".join(x for x in key)
+
+
+_td_keyword = keyword('orca.inp')

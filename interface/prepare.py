@@ -40,7 +40,7 @@ states_involved = config.getint('State', 'Total_state')
 dyn_states = config.getint('State', 'Current_state')
 states_max = config.getint('State', 'Max_state')
 states_min = config.getint('State', 'Min_state')
-nloop = 0
+
 
 soft = config.get('Run_soft', 'Soft').capitalize()
 try:
@@ -150,3 +150,10 @@ class EnterDir:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         os.chdir("../")
+
+def hop_record():
+    try:
+        os.mkdir("HoppingRecord")
+    except FileExistsError:
+        pass 
+hop_record()

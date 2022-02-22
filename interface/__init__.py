@@ -18,8 +18,6 @@ __all__ = ["software_running", "read_wavefunction", "delete_wavefunction", "chec
            "get_grad_matrix", "get_energy", "replace_coordinate", "renew_calc_states", "print_traj_cicoe",
            "eV", "ang", "fs", "amu", "pi", "velo"]
 
-# TODO 函数 "read_wavefunction", "delete_wavefunction" 未完成
-
 eV = 27.21138602
 ang = 0.529177257507  # Angstrom/Å e-10
 fs = 0.0241888439241  # 1 a.u. = 2.4188*10e-17

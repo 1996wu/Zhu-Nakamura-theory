@@ -25,16 +25,16 @@ import numpy as np
 
 from interface import *
 # from interface import eV, ang
-from interface.prepare import SI_step_time, total_time, dynamics_time, nloop
-from interface.prepare import dyn_states, states_min, states_max, states_involved
-from interface.prepare import element, element_mass, atom_list
-from interface.prepare import inputfile, inputfile_d, inputfile_u, outputfile_d, outputfile_u
-from interface.prepare import natom, initial_mom, initial_coord
-from interface.prepare import soft, threshold
-from interface.prepare import wfnfile, wfn_suffix, EnterDir
-from ultis.geom import coord_corrections, coord_mom_rot, coord_corrections, mom_corrections
-from ultis.geom import critical_value, calculate_kinetic
-from ultis.velocity_verlet import update_momentum_matrix, update_position_matrix
+from interface.prepare import (SI_step_time, total_time, dynamics_time, nloop,
+                               dyn_states, states_min, states_max, states_involved,
+                               element, element_mass, atom_list,
+                               inputfile, inputfile_d, inputfile_u, outputfile_d, outputfile_u,
+                               natom, initial_mom, initial_coord,
+                               soft, threshold,
+                               wfnfile, wfn_suffix, EnterDir)
+from utils.geom import (coord_corrections,
+                        critical_value, calculate_kinetic, print_matrix)
+from utils.velocity_verlet import update_momentum_matrix, update_position_matrix
 
 # All units in the code are a.u./hartree
 # The units of initial coordination/velocity is Angstrom/Å  and Bohr/a.u.
@@ -96,13 +96,6 @@ def analyse_result():
         renew_calc_states(dyn_states, inputfile, add="force")
 
 
-def print_matrix(value):
-    for i in range(natom):
-        ele = format(element[i], '<5s')
-        xyz = "".join(format(x, '>18.10f') for x in value[i])
-        print(ele + xyz, flush=True)
-
-
 def on_the_fly():  # 在software check——hooping 之后
     """
     renew the current step momentum and the nex step position
@@ -141,18 +134,17 @@ def on_the_fly():  # 在software check——hooping 之后
 
 
 def save_wavefunction():
-    with EnterDir(soft + "Temp"):
-        c = wfn_suffix[soft]
-        if nloop == 0:
-            shutil.copy(wfnfile, "q1." + c)
-        elif nloop == 1:
-            shutil.copy(wfnfile, "q2." + c)
-        elif nloop == 2:
-            shutil.copy(wfnfile, "q3." + c)
-        else:
-            shutil.copy("q2." + c, "q1." + c)
-            shutil.copy("q3." + c, "q2." + c)
-            shutil.copy(wfnfile, "q3." + c)
+    c = wfn_suffix[soft]
+    if nloop == 0:
+        shutil.copy(wfnfile, "q1." + c)
+    elif nloop == 1:
+        shutil.copy(wfnfile, "q2." + c)
+    elif nloop == 2:
+        shutil.copy(wfnfile, "q3." + c)
+    else:
+        shutil.copy("q2." + c, "q1." + c)
+        shutil.copy("q3." + c, "q2." + c)
+        shutil.copy(wfnfile, "q3." + c)
 
 
 def check_hopping():  # when nloop >=2,begin check hopping
@@ -267,19 +259,20 @@ def check_hopping():  # when nloop >=2,begin check hopping
 
         # calculate = q3 down_state grad
         # replace_coordinate(q3)  #the current coordinate is q3 ,so this is no significance
-        renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
-        software_running(inputfile_d)
-        grad_q3d = get_grad_matrix(outputfile_d)
+        with EnterDir(soft + "Temp"):
+            renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
+            software_running(inputfile_d)
+            grad_q3d = get_grad_matrix(outputfile_d)
 
         # calculate = q1  down_state grad
         with EnterDir(soft + "Temp"):
             c = wfn_suffix[soft]
             # read q1 wavefunction file
             shutil.copy("q1." + c, wfnfile)
-        replace_coordinate(q1)
-        renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
-        software_running(inputfile_d)
-        grad_q1d = get_grad_matrix(outputfile_d)
+            replace_coordinate(q1)
+            renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
+            software_running(inputfile_d)
+            grad_q1d = get_grad_matrix(outputfile_d)
 
         hop_p, delta_grad_q2, mom_direction_factor, grad_q2d, grad_q2u = get_hop_factor(
             grad_q3d, grad[nloop], grad_q1d, grad[nloop - 2], hop_direction)
@@ -297,19 +290,20 @@ def check_hopping():  # when nloop >=2,begin check hopping
         hop_direction = 'U'
 
         # calculate = q3 up_state grad
-        renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
-        software_running(inputfile_u)
-        grad_q3u = get_grad_matrix(outputfile_u)
+        with EnterDir(soft + "Temp"):
+            renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
+            software_running(inputfile_u)
+            grad_q3u = get_grad_matrix(outputfile_u)
 
         # calculate = q1  down_state grad
         with EnterDir(soft + "Temp"):
             c = wfn_suffix[soft]
             # read q1 wavefunction file
             shutil.copy("q1." + c, wfnfile)
-        replace_coordinate(q1)
-        renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
-        software_running(inputfile_u)
-        grad_q1u = get_grad_matrix(outputfile_u)
+            replace_coordinate(q1)
+            renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
+            software_running(inputfile_u)
+            grad_q1u = get_grad_matrix(outputfile_u)
 
         hop_p, delta_grad_q2, mom_direction_factor, grad_q2d, grad_q2u = get_hop_factor(
             grad[nloop], grad_q3u, grad[nloop - 2], grad_q1u, hop_direction)
@@ -334,19 +328,20 @@ def check_hopping():  # when nloop >=2,begin check hopping
         # hop_p = 0
 
         # calculate = q3 up_state grad
-        renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
-        software_running(inputfile_u)
-        grad_q3u = get_grad_matrix(outputfile_u)
+        with EnterDir(soft + "Temp"):
+            renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
+            software_running(inputfile_u)
+            grad_q3u = get_grad_matrix(outputfile_u)
 
         # calculate = q1 up_state grad
         with EnterDir(soft + "Temp"):
             c = wfn_suffix[soft]
             # read q1 wavefunction file
             shutil.copy("q1." + c, wfnfile)
-        replace_coordinate(q1)
-        renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
-        software_running(inputfile_u)
-        grad_q1u = get_grad_matrix(outputfile_u)
+            replace_coordinate(q1)
+            renew_calc_states((dyn_states + 1), inputfile, inputfile_u)
+            software_running(inputfile_u)
+            grad_q1u = get_grad_matrix(outputfile_u)
 
         hop_p_u, delta_grad_q2_u, mom_direction_factor_u, grad_q2m, grad_q2u = get_hop_factor(
             grad_q3m, grad_q3u, grad_q1m, grad_q1u, hop_direction)
@@ -359,20 +354,20 @@ def check_hopping():  # when nloop >=2,begin check hopping
             c = wfn_suffix[soft]
             # read q1 wavefunction file
             shutil.copy("q3." + c, wfnfile)
-        replace_coordinate(q3)
-        renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
-        software_running(inputfile_d)
-        grad_q3d = get_grad_matrix(outputfile_d)
+            replace_coordinate(q3)
+            renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
+            software_running(inputfile_d)
+            grad_q3d = get_grad_matrix(outputfile_d)
 
         # calculate = q1 down_state grad
         with EnterDir(soft + "Temp"):
             c = wfn_suffix[soft]
             # read q1 wavefunction file
             shutil.copy("q1." + c, wfnfile)
-        replace_coordinate(q1)
-        renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
-        software_running(inputfile_d)
-        grad_q1d = get_grad_matrix(outputfile_d)
+            replace_coordinate(q1)
+            renew_calc_states((dyn_states - 1), inputfile, inputfile_d)
+            software_running(inputfile_d)
+            grad_q1d = get_grad_matrix(outputfile_d)
 
         hop_p_d, delta_grad_q2_d, mom_direction_factor_d, grad_q2d, grad_q2m_1 = get_hop_factor(
             grad_q3d, grad_q3m, grad_q1d, grad_q1m, hop_direction)
@@ -605,7 +600,8 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
         dyn_states = dyn_states + 1
 
     # revise the dyn_states
-    renew_calc_states(dyn_states, inputfile)
+    with EnterDir(soft + "Temp"):
+        renew_calc_states(dyn_states, inputfile)
 
     # delete q2, q3 grad
     grad.pop()
@@ -696,16 +692,17 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
                                                               potential_energy[nloop - 1][dyn_states],
                                                               kin_energy[nloop - 1]))
         f.write('   ' + '\n')
-    hop_xyz = 'hop-coord-' + format(dynamics_time - SI_step_time, '.1f') + '.xyz'
-    with open(hop_xyz, 'w+') as f:
-        f.write(str(natom) + "\n")
-        f.write('Hopping Time = ' +
-                format(dynamics_time - SI_step_time, '>10.2f') + '\n')
-        for i in range(natom):
-            ele = format(element[i], '<5s')
-            xyz = ''.join(format(x * ang, '>18.10f') for x in coord[nloop - 1][i])
-            mom = ''.join(format(x, '>18.10f') for x in mom_renew_c[i])
-            f.write(ele + xyz + mom + '\n')
+    with EnterDir("./HoppingRecord"):
+        hop_xyz = 'hop-coord-' + format(dynamics_time - SI_step_time, '.1f') + '.xyz'
+        with open(hop_xyz, 'w+') as f:
+            f.write(str(natom) + "\n")
+            f.write('Hopping Time = ' +
+                    format(dynamics_time - SI_step_time, '>10.2f') + '\n')
+            for i in range(natom):
+                ele = format(element[i], '<5s')
+                xyz = ''.join(format(x * ang, '>18.10f') for x in coord[nloop - 1][i])
+                mom = ''.join(format(x, '>18.10f') for x in mom_renew_c[i])
+                f.write(ele + xyz + mom + '\n')
 
     # revise q2 traj_energy.log (q2) q3 is current coordinate
     with open('traj_energy.log', 'r') as f, open("%s.bak" % 'traj_energy.log', 'w+') as f_new:
@@ -728,10 +725,12 @@ def hopping_renew(delta_grad_q2, mom_direction_factor, hop_direction, grad_q2d, 
     q3_c, rot = coord_corrections(coord[0], q3, element_mass)
     coord.append(q3_c)
     rot_matrix.append(rot)
-    replace_coordinate(coord[nloop])
-    software_running()
-    save_wavefunction()
-    analyse_result()
+    # enter SoftTemp
+    with EnterDir(soft + "Temp"):
+        replace_coordinate(coord[nloop])
+        software_running()
+        save_wavefunction()
+        analyse_result()
 
     # q3_kin = calculate_kinetic(update_momentum_matrix(momentum[nloop - 1], grad[nloop], new_grad_q2))
     q3_kin = calculate_kinetic(update_momentum_matrix(mom_renew, grad[nloop], new_grad_q2))
@@ -831,7 +830,10 @@ def print_result():
 
     # print traj_cicoe.log
     # print key coordinate  angle bond dihedral
-    print_traj_cicoe(dynamics_time)
+    with EnterDir(soft + "Temp"):
+        print_traj_cicoe(dynamics_time)
+        shutil.copy("traj_cicoe.log", "../")
+
     with open('traj_coord.log', 'a+') as f:
         f.write('{:<12.2f}'.format(dynamics_time))
         for label in atom_list:
@@ -843,25 +845,25 @@ def print_result():
 def main():
     print("The Nonadiabatic on-the-fly Molecular Dynamics based on Zhu-Nakamura Theory", flush=True)
     print("--------------------------------------\n", flush=True)
-    # basis_constant()
-    # set_var()
-    # check_initial(dyn_states)
-    get_initial_condition()  # read coordinates from initial condition
-    replace_coordinate(coord[0])
     global dynamics_time, nloop
+    get_initial_condition()  # read coordinates from initial condition
+    with EnterDir(soft + "Temp"):
+        replace_coordinate(coord[0])
     while dynamics_time <= total_time:
         print("Trajectory calculation of step %s loop start at the %5.2f fs (%s)" % (
             nloop, dynamics_time, current_time()), flush=True)
-        software_running()
-        save_wavefunction()
-        analyse_result()
+        with EnterDir(soft + "Temp"):
+            software_running()
+            save_wavefunction()
+            analyse_result()
         if nloop >= 2:
             check_hopping()
         # check_result()
         on_the_fly()
         print_result()
         # MO_draw()
-        replace_coordinate(coord[nloop + 1])
+        with EnterDir(soft + "Temp"):
+            replace_coordinate(coord[nloop + 1])
         print("Trajectory calculation of step %s loop end at the %5.2f fs (%s)\n\n" % (
             nloop, dynamics_time, current_time()), flush=True)
         nloop += 1

@@ -187,12 +187,12 @@ class Gaussian(PublicFunction):
                         if nstates == 0:  # excited states -> ground states
                             line = re.sub(regex_td, '', line)
                         else:
-                            line = re.sub(regex_root, str(nstate), line)
+                            line = re.sub(regex_root, str(nstates), line)
                     else:  # ground states -> the excited states
                         if re.search('#(p|P|s|S)?', line):
                             if nstates >= 1:
                                 line = re.sub('\r?\n', '', line).strip()
-                                WORD = re.sub(regex_root, str(nstate), word)
+                                WORD = re.sub(regex_root, str(nstates), _td_keyword)
                                 line = line + ' ' + WORD + '\n'
                     if st:  # change the singlet/Triplets excited states for closed-shell systems
                         if re.search(regex_td, line):
@@ -222,13 +222,17 @@ class Gaussian(PublicFunction):
             os.remove(filename)
             os.rename(filename_new, filename)
 
-    def keyword(self, filename):
-        regex = re.compile('(tda?=?\(.*?\)|tda)', re.IGNORECASE)
-        key = []
-        with open(filename) as f:
-            for line in f:
-                if regex.search(line):
-                    keyword = ' '.join(str(x) for x in regex.findall(line))
-                    key.append(keyword)
-        tda = ' '.join(str(x) for x in key)
-        return tda.strip()
+
+def keyword(filename):
+    regex = re.compile('(tda?=?\(.*?\)|tda)', re.IGNORECASE)
+    key = []
+    with open(filename) as f:
+        for line in f:
+            if regex.search(line):
+                keyword = ' '.join(str(x) for x in regex.findall(line))
+                key.append(keyword)
+    tda = ' '.join(str(x) for x in key)
+    return tda.strip()
+
+
+_td_keyword = keyword('gauss.gjf')

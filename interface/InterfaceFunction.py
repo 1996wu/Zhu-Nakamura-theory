@@ -1,14 +1,10 @@
-import re
-import os
-import numpy as np
-
-from .Orca import Orca
-from .Gaussian import Gaussian
+from utils.geom import replace_coord
 from .PublicFunction import PublicFunction
-from .prepare import soft, dyn_states
-from .prepare import output_suffix, input_suffix, input_prefix
+from .Gaussian import Gaussian
+from .Orca import Orca
+from .prepare import (soft, dyn_states,
+                      output_suffix, input_suffix, input_prefix)
 
-ang = 0.529177210903
 Soft_class = {"Gaussian": "Gaussian()", "Orca": "Orca()", "Molpro": "Molpro()",
               "Bdf": "Bdf()"}
 
@@ -24,67 +20,40 @@ class Interface:
         self.input = input_prefix[soft] + "." + input_suffix[soft]
         self.result = c
 
-    @staticmethod
-    def __replace(new_coordinate, filename, filename_new=None):
-        regex = re.compile('[A-Za-z]{1,2}\s*(\s*(-?[0-9]+\.[0-9]*)){3}')
-        regex_1 = re.compile('(\s*(-?[0-9]+\.[0-9]*)){3}')
-        count = 0
-        flag_file = False
-        if not filename_new:
-            flag_file = True
-            filename_new = "%s.bak" % filename
-        with open(filename, 'r') as f, open(filename_new, 'w+') as f_new:
-            for n, line in enumerate(f):
-                if not regex.findall(line):
-                    f_new.write(line)
-                else:
-                    replace_coord = ''.join(format(i * ang, '>18.10f')
-                                            for i in new_coordinate[count][:3])
-                    f_new.write(re.sub(regex_1, replace_coord, line))
-                    count += 1
-        if flag_file:
-            os.remove(filename)
-            os.rename(filename_new, filename)
-
     def grad(self, filename=None):
-        if filename:
-            self.output = filename
-        return self.result.grad(self.output)
+        if not filename:
+            filename = self.output
+        return self.result.grad(filename)
 
     def energy(self, filename=None):
-        if filename:
-            self.output = filename
-        return self.result.energy(self.output)
+        if not filename:
+            filename = self.output
+        return self.result.energy(filename)
 
     def cico(self, time, filename=None):
-        if filename:
-            self.output = filename
-        return self.result.cico(time, self.output)
+        if not filename:
+            filename = self.output
+        return self.result.cico(time, filename)
 
     def replace(self, new_coord, filename=None, filename_new=None):
-        if filename:
-            self.input = filename
-        return self.__replace(new_coord, self.input, filename_new)
+        if not filename:
+            filename = self.input
+        return replace_coord(new_coord, filename, filename_new)
 
     def renew_states(self, nstates, filename=None, filename_new=None, **kwargs):
-        if filename:
-            self.input = filename
-        return self.result.renew_calc_states(nstates, self.input, filename_new, **kwargs)
-
-    def get_keyword(self, filename=None):
-        if filename:
-            self.input = filename
-        return self.result.keyword(self.input)
+        if not filename:
+            filename = self.input
+        return self.result.renew_calc_states(nstates, filename, filename_new, **kwargs)
 
     def read(self, filename=None):
-        if filename:
-            self.input = filename
-        return self.result.r_wavefunction(self.input)
+        if not filename:
+            filename = self.input
+        return self.result.r_wavefunction(filename)
 
     def delete(self, filename=None):
-        if filename:
-            self.input = filename
-        return self.result.d_wavefunction(self.input)
+        if not filename:
+            filename = self.input
+        return self.result.d_wavefunction(filename)
 
     def chk(self, nstates):
         return self.result.check(nstates)
@@ -92,7 +61,6 @@ class Interface:
 
 s = eval(soft + "()")
 r = Interface(s)
-word = r.get_keyword(filename=None)
 
 
 def get_energy(filename=None):
@@ -133,7 +101,7 @@ def print_traj_cicoe(time, filename=None):
 
 def replace_coordinate(new_coord, filename=None, filename_new=None):
     """
-
+    replace new coordinate in inputfile
     Args:
         new_coord: the geom coordinate(a.u.)
         filename:  default is (gauss.gjf, orca.inp, molpro.in)
@@ -155,7 +123,8 @@ def delete_wavefunction(filename=None):
 
 def check_initial(nstates):
     """
-
+    Check whether the initial conditions are reasonable
+    and whether the inputfile( "gauss.gjf, molpro.in, orca.inp") keywords is wrong
     Args:
         nstates: the current dynamic states
 
@@ -169,16 +138,22 @@ def check_initial(nstates):
 check_initial(dyn_states)
 
 
-def renew_calc_states(nstates, filename=None, filename_new=None, **kwargs):
+def renew_calc_states(nstates, filename=None, filename_new=None,
+                      st=None, spin=None, charge=None, remove=None, add=None):
     """
-
+    Calculate the energy of different states(S1->S0,S0-S1, S->ST(singlets,triplets)
+    change some keywords(spin, charges, add and delete keyword)
     Args:
         nstates:  the new dynamic states
         filename:  default is "gauss.gjf, orca.inp, molpro.in"
         filename_new: default is "None"
-        **kwargs: : add=None(add the new keywords), remove=None(remove the old keyword),spin
-
+        st: (singlets,triplets) is only calculate energy
+        spin: singles, triplets
+        charge: 0 1
+        remove: remove the old keyword in last line
+        add: add some new keyword in last line
     Returns:
-
+        None
     """
-    return r.renew_states(nstates, filename, filename_new, **kwargs)
+    return r.renew_states(nstates, filename, filename_new,
+                          st=None, spin=None, charge=None, remove=None, add=None)

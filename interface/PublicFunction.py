@@ -61,6 +61,6 @@ class PublicFunction(ABC):
     def renew_calc_states(self, filename, filename_new=None, **kwargs):
         pass
 
-    @abstractmethod
-    def keyword(self, filename):
-        pass
+    # @abstractmethod
+    # def keyword(self, filename):
+    #     pass

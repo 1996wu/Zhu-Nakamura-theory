@@ -33,10 +33,11 @@ class QuRun:
         self.soft = soft
         self.path = None
         self.temDic = soft + "Temp"
-        self.filename = None
-        self.output = None
         self.command = None
         self.suffix = output_suffix[self.soft]
+        self.input = input_prefix[self.soft] + "." + input_suffix[self.soft]
+        self.output = input_prefix[self.soft] + "." + output_suffix[self.soft]
+        shutil.copy(self.input, self.temDic)
 
     @staticmethod
     def current_time():
@@ -55,48 +56,50 @@ class QuRun:
             self.path = _path.stdout.replace("\n", "")
 
     def input_file(self, file=None):
-        if file:
-            self.filename = file
+        if not file:
+            file = self.input
+        return file
+
+    def output_file(self, file=None):
+        if not file:
+            output = self.output
         else:
-            self.filename = input_prefix[self.soft] + "." + input_suffix[self.soft]
+            prefix = file.split(".")[0]
+            output = prefix + "." + self.suffix
+        return output
 
-    def output_file(self):
-        prefix = self.filename.split(".")[0]
-        self.output = prefix + "." + self.suffix
-
-    def running_command(self):
+    def running_command(self, file1=None, file2=None):
         if self.soft == "Gaussian":
             # g16 gauss.gjf => gauss.out
-            self.command = self.path + " " + self.filename
+            self.command = self.path + " " + file1
         elif self.soft == "Orca":
             # orcaPath  orca.inp &> orca.out
-            self.command = self.path + " " + self.filename + " &> " + self.output
+            self.command = self.path + " " + file1 + " &> " + file2
         elif self.soft == "Molpro":
             # save wfu file in current dir and forbid backup file
-            self.command = self.path + " " + " -W ./  " + " --backup 1 " + self.filename
+            self.command = self.path + " " + " -W ./  " + " --backup 1 " + file1
         else:
             # I do not know...how to run molpro molcas BDF
             pass
 
     def running(self):
         print("The %s begin running at %s" % (self.soft, self.current_time()), flush=True)
-        shutil.copy(self.filename, self.temDic)
-        with EnterDir(self.temDic):
-            proc = subprocess.Popen(self.command, shell=True)
-            proc.wait()
-            shutil.copy(self.output, "../")
+        proc = subprocess.Popen(self.command, shell=True)
+        proc.wait()
         print("The %s ended at %s" % (self.soft, self.current_time()), flush=True)
 
     def worker(self, inputfile=None):
         self.prepare()
-        self.input_file(inputfile)
-        self.output_file()
-        self.running_command()
+        f1 = self.input_file(inputfile)
+        f2 = self.output_file(inputfile)
+        self.running_command(file1=f1, file2=f2)
         self.running()
 
 
+sr = QuRun()
+
+
 def software_running(filename=None):
-    sr = QuRun()
     sr.worker(filename)
 
 
