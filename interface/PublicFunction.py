@@ -4,13 +4,13 @@ from abc import ABC, abstractmethod
 class PublicFunction(ABC):
 
     @abstractmethod
-    def energy(self, filename):
+    def energy(self, filename, nstates: int):
         pass
         """
 
         Args:
             filename: The output file of quantum chemistry software: "gauss.log", "orca.out" ..:
-
+            nstates: int , the current states
         Returns:
             The excited energy list [S0, S1, S2, S3] and  the current total energy(float)
         """
@@ -39,6 +39,7 @@ class PublicFunction(ABC):
         Returns: None
         """
 
+    @abstractmethod
     def check(self, nstates):
         pass
         """
@@ -49,6 +50,7 @@ class PublicFunction(ABC):
         Returns: None 
 
         """
+
     @abstractmethod
     def r_wavefunction(self, filename):
         pass
@@ -58,7 +60,7 @@ class PublicFunction(ABC):
         pass
 
     @abstractmethod
-    def renew_calc_states(self, filename, filename_new=None, **kwargs):
+    def renew_calc_states(self, nstates, filename, filename_new=None, **kwargs):
         pass
 
     # @abstractmethod

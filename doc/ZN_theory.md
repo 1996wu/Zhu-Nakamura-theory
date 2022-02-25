@@ -63,7 +63,7 @@ $$
 $$
 定义一个新向量 ***S*** 与$\frac{1}{\sqrt{m}}(F_2-F_1)$有相同方向的单位向量：
 $$
-\mathbf{s_i} = \frac{[F_i^2(\mathbf{q}^2) -F_i^1(\mathbf{q}^2)]\frac{1}{\sqrt{m}}}{\sqrt{(F_2-F_1)^2 \frac{1}{m}}}
+\mathbf{s_i} = \frac{[F_i^2(\mathbf{q}^2) -F_i^1(\mathbf{q}^2)]\frac{1}{\sqrt{m_i}}}{\sqrt{(F_2-F_1)^2 \frac{1}{m}}}
 $$
 因此 ZN方法中每一个原子的跃迁方向可以定义为$\mathbf{n_i}=\frac{\mathbf{s_i}}{|\mathbf{s_i|}}$。 在轨迹模拟中，整个过程应该保持能量守恒即：
 $$

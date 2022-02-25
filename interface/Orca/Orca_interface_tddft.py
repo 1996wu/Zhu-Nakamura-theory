@@ -31,7 +31,7 @@ class Orca(PublicFunction):
                             flag_b = True
         return np.array(data)
 
-    def energy(self, filename):
+    def energy(self, filename, nstates: int):
         # notice, "TDDFT module" must include printlevel 3
         regex_scf = re.compile("Total Energy       :")
         regex_l1 = re.compile("lowest eigenvalues of")

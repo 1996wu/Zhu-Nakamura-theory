@@ -117,7 +117,7 @@ atom_list, atom_value_range = get_key_element(path_geom)
 input_prefix = {"Gaussian": "gauss", "Orca": "orca", "Molpro": "molpro"}
 input_suffix = {"Gaussian": "gjf", "Orca": "inp", "Molpro": "in"}
 output_suffix = {"Gaussian": "log", "Orca": "out", "Molpro": "out"}
-wfn_suffix = {"Gaussian": "chk", "Orca": "gbw", "Molpro": "wfn"}
+wfn_suffix = {"Gaussian": "chk", "Orca": "gbw", "Molpro": "wfu"}
 
 
 def filename_var():

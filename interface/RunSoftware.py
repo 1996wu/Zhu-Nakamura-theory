@@ -77,7 +77,8 @@ class QuRun:
             self.command = self.path + " " + file1 + " &> " + file2
         elif self.soft == "Molpro":
             # save wfu file in current dir and forbid backup file
-            self.command = self.path + " " + " -W ./  " + " --backup 1 " + file1
+            # molpro  -W ./ --backup 1  molpro.in
+            self.command = self.path + " " + " -W ./  " + " --backup 1  --no-xml-output " + file1
         else:
             # I do not know...how to run molpro molcas BDF
             pass

@@ -1,7 +1,11 @@
+from typing import List, Tuple
+import numpy as np
+
 from utils.geom import replace_coord
 from .PublicFunction import PublicFunction
 from .Gaussian import Gaussian
 from .Orca import Orca
+from .Molpro import Molpro
 from .prepare import (soft, dyn_states,
                       output_suffix, input_suffix, input_prefix)
 
@@ -25,10 +29,10 @@ class Interface:
             filename = self.output
         return self.result.grad(filename)
 
-    def energy(self, filename=None):
+    def energy(self, filename=None, nstates=None):
         if not filename:
             filename = self.output
-        return self.result.energy(filename)
+        return self.result.energy(filename, nstates)
 
     def cico(self, time, filename=None):
         if not filename:
@@ -63,19 +67,19 @@ s = eval(soft + "()")
 r = Interface(s)
 
 
-def get_energy(filename=None):
+def get_energy(filename: str = None, nstates: str = None) -> Tuple[np.ndarray, float]:
     """
 
     Args:
-        filename: The output file of quantum chemistry software: "gauss.log", "orca.out" ..:
-
+        filename: The output file of quantum chemistry software: "gauss.log", "orca.out", "molpro.out":
+        nstates: the energy of the current states(This must be pointed in CASSCF level with Molpro)
     Returns:
-        The excited energy list [S0, S1, S2, S3] and  the current total energy(float)
+        tuple,The excited energy list [S0, S1, S2, S3] and  the current total energy()
     """
-    return r.energy(filename)
+    return r.energy(filename, nstates)
 
 
-def get_grad_matrix(filename=None):
+def get_grad_matrix(filename: str = None) -> np.ndarray:
     """
 
     Args:
@@ -99,11 +103,11 @@ def print_traj_cicoe(time, filename=None):
     return r.cico(time, filename)
 
 
-def replace_coordinate(new_coord, filename=None, filename_new=None):
+def replace_coordinate(new_coord: np.ndarray, filename: str = None, filename_new: str = None):
     """
     replace new coordinate in inputfile
     Args:
-        new_coord: the geom coordinate(a.u.)
+        new_coord: the geom coordinate(a.u.)(3 * N)
         filename:  default is (gauss.gjf, orca.inp, molpro.in)
         filename_new: Whether to save as a new file, default is "None"
 
@@ -121,7 +125,7 @@ def delete_wavefunction(filename=None):
     return r.delete(filename)
 
 
-def check_initial(nstates):
+def check_initial(nstates: int):
     """
     Check whether the initial conditions are reasonable
     and whether the inputfile( "gauss.gjf, molpro.in, orca.inp") keywords is wrong
@@ -138,7 +142,7 @@ def check_initial(nstates):
 check_initial(dyn_states)
 
 
-def renew_calc_states(nstates, filename=None, filename_new=None,
+def renew_calc_states(nstates: int, filename: str = None, filename_new: str = None,
                       st=None, spin=None, charge=None, remove=None, add=None):
     """
     Calculate the energy of different states(S1->S0,S0-S1, S->ST(singlets,triplets)

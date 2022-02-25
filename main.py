@@ -74,26 +74,31 @@ def analyse_result():
     grad, potential_energy, total_energy
     """
     grad.append(get_grad_matrix())
-    E_exc, E_scf = get_energy()
+    E_exc, E_scf = get_energy(nstates=dyn_states)
     scf_energy.append(E_scf)
     if dyn_states >= 1 or states_involved <= 1:
         # S0 dynamics and the excited dynamics
         potential_energy.append(E_exc)
     else:  # after hopping S0 dynamics
-        print("Begin calculate the excited states energy at %s" %
-              current_time(), flush=True)
-        read_wavefunction()
-        # Get the keywords of the previous input file
-        #  renew_calc_states(states_involved, inputfile) #error *****
-        renew_calc_states(states_involved - 1, inputfile,
-                          remove="force")  # root=states_involved - 1
-        software_running()
-        E_exc, E_scf = get_energy()
-        # get the excited stated excited energy
-        potential_energy.append(E_exc)
-        delete_wavefunction()
-        #  renew_calc_states(dyn_states, inputfile) # error  *****
-        renew_calc_states(dyn_states, inputfile, add="force")
+        if soft in ("Gaussian", 'Orca'):
+            # TDDFT could not calculate Excited energy and S0 grad in meanwhile
+            print("Begin calculate the excited states energy at %s" %
+                  current_time(), flush=True)
+            read_wavefunction()
+            # Get the keywords of the previous input file
+            #  renew_calc_states(states_involved, inputfile) #error *****
+            renew_calc_states(states_involved - 1, inputfile,
+                              remove="force")  # root=states_involved - 1
+            software_running()
+            E_exc, E_scf = get_energy(nstates=dyn_states)
+            # get the excited stated excited energy
+            potential_energy.append(E_exc)
+            delete_wavefunction()
+            #  renew_calc_states(dyn_states, inputfile) # error  *****
+            renew_calc_states(dyn_states, inputfile, add="force")
+        elif soft in ("Molpro", "Molcas"):
+            # CASSCF could calculate Excited energy and S0 grad in meanwhile
+            potential_energy.append(E_exc)
 
 
 def on_the_fly():  # 在software check——hooping 之后

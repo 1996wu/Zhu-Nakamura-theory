@@ -12,7 +12,7 @@ ang = 0.529177257507  # Angstrom/Å e-10
 
 
 class Gaussian(PublicFunction):
-    def energy(self, filename):
+    def energy(self, filename, nstates: int):
         # notice key value must include #P or #p
         regex = re.compile('SCF Done')
         regex_1 = re.compile('Excitation Energies \[eV] at current iteration:')
