@@ -1,16 +1,17 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import numpy as np
 
 from utils.geom import replace_coord
 from .PublicFunction import PublicFunction
-from .Gaussian import Gaussian
-from .Orca import Orca
-from .Molpro import Molpro
 from .prepare import (soft, dyn_states,
                       output_suffix, input_suffix, input_prefix)
 
-Soft_class = {"Gaussian": "Gaussian()", "Orca": "Orca()", "Molpro": "Molpro()",
-              "Bdf": "Bdf()"}
+if soft == "Gaussian":
+    from .Gaussian import Gaussian
+elif soft == "Orca":
+    from .Orca import Orca
+elif soft == "Molpro":
+    from .Molpro import Molpro
 
 __all__ = ["read_wavefunction", "delete_wavefunction", "check_initial",
            "get_grad_matrix", "get_energy", "replace_coordinate", "renew_calc_states", "print_traj_cicoe"]
@@ -67,7 +68,7 @@ s = eval(soft + "()")
 r = Interface(s)
 
 
-def get_energy(filename: str = None, nstates: str = None) -> Tuple[np.ndarray, float]:
+def get_energy(filename: str = None, nstates: int = None) -> Tuple[np.ndarray, float]:
     """
 
     Args:
@@ -91,7 +92,7 @@ def get_grad_matrix(filename: str = None) -> np.ndarray:
     return r.grad(filename)
 
 
-def print_traj_cicoe(time, filename=None):
+def print_traj_cicoe(time: Union[float, int], filename: str = None):
     """
 
     Args:
@@ -125,7 +126,7 @@ def delete_wavefunction(filename=None):
     return r.delete(filename)
 
 
-def check_initial(nstates: int):
+def check_initial(nstates: int) -> None:
     """
     Check whether the initial conditions are reasonable
     and whether the inputfile( "gauss.gjf, molpro.in, orca.inp") keywords is wrong
@@ -133,9 +134,8 @@ def check_initial(nstates: int):
         nstates: the current dynamic states
 
     Returns:
-
+            None
     """
-
     return r.chk(nstates)
 
 
@@ -143,7 +143,7 @@ check_initial(dyn_states)
 
 
 def renew_calc_states(nstates: int, filename: str = None, filename_new: str = None,
-                      st=None, spin=None, charge=None, remove=None, add=None):
+                      **kwargs):
     """
     Calculate the energy of different states(S1->S0,S0-S1, S->ST(singlets,triplets)
     change some keywords(spin, charges, add and delete keyword)
@@ -151,13 +151,13 @@ def renew_calc_states(nstates: int, filename: str = None, filename_new: str = No
         nstates:  the new dynamic states
         filename:  default is "gauss.gjf, orca.inp, molpro.in"
         filename_new: default is "None"
-        st: (singlets,triplets) is only calculate energy
-        spin: singles, triplets
-        charge: 0 1
-        remove: remove the old keyword in last line
-        add: add some new keyword in last line
+        Kwargs:
+            st: (singlets,triplets) is only calculate energy
+            spin: singles, triplets
+            charge: 0 1
+            remove: remove the old keyword in last line
+            add: add some new keyword in last line
     Returns:
         None
     """
-    return r.renew_states(nstates, filename, filename_new,
-                          st=None, spin=None, charge=None, remove=None, add=None)
+    return r.renew_states(nstates, filename, filename_new,**kwargs)

@@ -30,23 +30,34 @@ config = configparser.ConfigParser()
 config.read("run.ini")
 
 sim_begin_time = config.getfloat('Time', 'Initialize_time')
-SI_step_time = config.getfloat('Time', 'Delta_time')
+si_step_time = config.getfloat('Time', 'Delta_time')
 total_time = config.getfloat('Time', 'Total_time')
 dynamics_time = sim_begin_time
 nloop = config.getint('Time', "Current_loop")
-
 
 states_involved = config.getint('State', 'Total_state')
 dyn_states = config.getint('State', 'Current_state')
 states_max = config.getint('State', 'Max_state')
 states_min = config.getint('State', 'Min_state')
 
-
 soft = config.get('Run_soft', 'Soft').capitalize()
 try:
     soft_path = config.get('Soft_path', soft + '_path')
-except NoOptionError:
-    pass
+except:
+    soft_path = ""
+
+soft_tmp = ""
+if soft == "Molpro":
+    try:
+        soft_tmp = config.get("Soft_tmp", "Molpro_tmp")
+        if not soft_tmp[-1] == "/":
+            soft_tmp += "/"
+    except:
+        pass
+
+flag_restart = config.getboolean("Restart_soft", "flag_restart")
+
+flag_wfn = config.getboolean("Soft_tmp", "Save_wfn")
 
 threshold = config.getfloat('Delta_energy', 'threshold')
 
@@ -105,10 +116,10 @@ def get_key_element(filename):
                         tmp_1 = [float(i) for i in line.split()[4:]]
                         avr.append(tmp_1)
                     else:
-                        raise Exception(
+                        raise exception(
                             "'geom.inp' format is error eg: atom1 atom2 atom3 atom4 num1  num2 num3 num4")
     except FileNotFoundError:
-        raise Exception("'geom.inp' does not exist")
+        raise exception("'geom.inp' does not exist")
     return al, avr
 
 
@@ -151,9 +162,12 @@ class EnterDir:
     def __exit__(self, exc_type, exc_val, exc_tb):
         os.chdir("../")
 
+
 def hop_record():
     try:
         os.mkdir("HoppingRecord")
     except FileExistsError:
-        pass 
+        pass
+
+
 hop_record()

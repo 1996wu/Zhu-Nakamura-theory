@@ -2,6 +2,7 @@ import os
 import re
 
 import numpy as np
+from typing import List, Tuple, Union
 
 from ..PublicFunction import PublicFunction
 
@@ -10,11 +11,11 @@ ang = 0.529177257507  # Angstrom/Å e-10
 
 
 class Orca(PublicFunction):
-    def grad(self, filename):
+    def grad(self, filename: str) -> np.ndarray:
         regex = re.compile("CARTESIAN GRADIENT")
-        data = []
-        flag_b = False
-        flag_g = False
+        data: List = []
+        flag_b: bool = False
+        flag_g: bool = False
         with open(filename, 'r+') as f:
             for line in f:
                 if not flag_g:
@@ -31,18 +32,18 @@ class Orca(PublicFunction):
                             flag_b = True
         return np.array(data)
 
-    def energy(self, filename, nstates: int):
+    def energy(self, filename: str, nstates: int) -> Tuple[List, float]:
         # notice, "TDDFT module" must include printlevel 3
         regex_scf = re.compile("Total Energy       :")
         regex_l1 = re.compile("lowest eigenvalues of")
         regex_l2 = re.compile("Lowest Energy  ")
         regex_e = re.compile("E\(tot\)  =")
-        flag_l1 = False
-        flag_l2 = False
-        flag_scf = False
-        e_ground = 0.0
-        all_excited = []
-        e_excited = 0.0
+        flag_l1: bool = False
+        flag_l2: bool = False
+        flag_scf: bool = False
+        e_ground: float = 0.0
+        all_excited: float = []
+        e_excited: float = 0.0
         with open(filename, 'r', encoding='UTF-8') as f:
             for line in f:
                 if flag_scf:
@@ -70,7 +71,7 @@ class Orca(PublicFunction):
         else:
             return [e_ground], e_ground
 
-    def cico(self, time, filename):
+    def cico(self, time: Union[float, int], filename: str) -> None:
         with open("traj_cicoe.log", "a+") as f, open(filename, 'r', encoding='UTF-8') as f_o:
             regex = re.compile("TD-DFT(/TDA)?\s*EXCITED STATES")
             regex_end = re.compile("E\(tot\)  =")
@@ -92,27 +93,39 @@ class Orca(PublicFunction):
                         f.write("\n")
                         break
 
-    def check(self, nstates):
+    def check(self, nstates: int):
         if os.path.isfile("orca.inp"):
             flag_f = False
             flag_r = False
-            flag_p = True
+            flag_p = False 
+            flag_w = False # %moinp "orca.gbw"
+            flag_b = False # %base "orca"
             with open("orca.inp", 'r') as f:
                 for line in f:
                     if re.search("EnGrad", line, re.IGNORECASE):
                         flag_f = True
-                    if re.search(r'iroot\s+%s' % nstates, line, re.IGNORECASE):
-                        flag_r = True
+                    if re.search("iroot\s+(?P<state>[1-9])", line, re.IGNORECASE):
+                        state_str = re.search("iroot\s+(?P<state>[1-9])",line,re.IGNORECASE).group("state")
+                        if str(nstates) != state_str :
+                            if nstates == 0:
+                                raise Exception("Please remove tddft module")
+                            else:
+                                raise Exception("Please check 'iroot %s' in orca.inp" % nstates)
                     if re.search("printlevel\s+3", line, re.IGNORECASE):
                         flag_p = True
+                    if re.search(r"moinp \"orca.old.gbw\"", line, re.IGNORECASE):
+                        flag_w = True 
+                    if re.search(r"base\s+\"orca\"", line, re.IGNORECASE):
+                        flag_b = True 
                 if not flag_f:
-                    raise Exception("Please use key value 'EnGrad'")
+                    raise Exception("Please use keyword 'EnGrad'")
+                if not flag_w:
+                    raise Exception("Please use keyword 'moread'")
+                if not flag_b:
+                    raise Exception("Please use keyword %base \"orca\"")
                 if nstates >= 1:
                     if not flag_p:
                         raise Exception("Please use key value 'printlevel 3'")
-                    if not flag_r:
-                        raise Exception(
-                            "Please check 'iroot %s' in orca.inp" % nstates)
         else:
             raise Exception("orca.inp is not found, please check *.inp filename again")
 
@@ -122,8 +135,8 @@ class Orca(PublicFunction):
     def d_wavefunction(self, filename):
         pass
 
-    def renew_calc_states(self, nstates, filename, filename_new=None, st=None, spin=None, charge=None,
-                          remove=None, add=None):
+    def renew_calc_states(self, nstates: int, filename: str, filename_new: str = None,
+                          st=None, spin=None, charge=None, remove=None, add=None):
         # exclamation(!)!CAM-B3LYP nousesym pal4  D3 RIJCOSX def2-SVP def2/J def2-SVP/C miniprint  TightSCF grid4 EnGrad
         # %pal nprocs 4 end
         # %TDDFT NROOTS 5
@@ -131,13 +144,13 @@ class Orca(PublicFunction):
         # printlevel 3
         # tda false
         # end
-        flag_td = False
+        flag_td: bool = False
         flag_keyword = False
-        flag_td_end = False
-        flag_file = False
+        flag_td_end: bool = False
+        flag_file: bool = False
         regex_td = re.compile("%TDDFT", re.IGNORECASE)
-        count = 0
-        td_n = 0
+        count: int = 0
+        td_n: int = 0
         with open(filename, 'r') as f:
             for n, line in enumerate(f):
                 if regex_td.search(line):

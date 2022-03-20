@@ -117,6 +117,9 @@ def replace_coord(new_coordinate, filename, filename_new=None):
                                     for i in new_coordinate[count][:3])
                 f_new.write(re.sub(regex_1, new_coord, line))
                 count += 1
+        if count != len(new_coordinate):
+            raise Exception("the atom of file(%s, %s) is not equal of new_coordinate(%s)"
+                                %(filename, str(count), str(len(new_coordinate))))
     if flag_file:
         os.remove(filename)
         os.rename(filename_new, filename)

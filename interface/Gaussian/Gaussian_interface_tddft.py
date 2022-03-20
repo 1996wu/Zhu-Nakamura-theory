@@ -1,10 +1,9 @@
 import os
 import re
-import numpy as np
-from abc import ABC, abstractmethod
 
-from ..prepare import soft
-from ..prepare import output_suffix, input_suffix, input_prefix
+import numpy as np
+
+from typing import List, Tuple, Union
 from ..PublicFunction import PublicFunction
 
 eV = 27.21138602
@@ -12,19 +11,19 @@ ang = 0.529177257507  # Angstrom/Å e-10
 
 
 class Gaussian(PublicFunction):
-    def energy(self, filename, nstates: int):
+    def energy(self, filename: str, nstates: int) -> Tuple[List, float]:
         # notice key value must include #P or #p
         regex = re.compile('SCF Done')
         regex_1 = re.compile('Excitation Energies \[eV] at current iteration:')
         regex_2 = re.compile('Convergence achieved on expansion vectors|Convergence on energies')
         regex_3 = re.compile('Total Energy')
-        energy = []
-        tmp = []
-        E_ground = 0.0
-        E_total = 0.0
-        flag_g = True
-        flag_e = False
-        flag_c = False
+        energy: List = []
+        tmp: List = []
+        E_ground: float = 0.0
+        E_total: float = 0.0
+        flag_g: bool = True
+        flag_e: bool = False
+        flag_c: bool = False
         with open(filename, 'r') as f:
             for line in f:
                 if flag_g:
@@ -56,11 +55,11 @@ class Gaussian(PublicFunction):
                 E_total = E_ground
         return sorted(energy), E_total
 
-    def grad(self, filename):
+    def grad(self, filename: str) -> np.ndarray:
         regex = re.compile('Forces \(Hartrees/Bohr\)')
-        data = []
-        addflag = False
-        count = 0
+        data: List = []
+        addflag: bool = False
+        count: int = 0
         with open(filename, 'r') as f:
             for line in f:
                 if not regex.search(line) or addflag:
@@ -77,7 +76,7 @@ class Gaussian(PublicFunction):
         # the gradient is opposite to the direction of force
         return -np.array(data)
 
-    def cico(self, time, filename):
+    def cico(self, time: Union[float, int], filename: str) -> None:
         with open('traj_cicoe.log', 'a+') as f:
             regex = re.compile('Excited State\s*[0-9]*:')
             regex_1 = re.compile('SavETr')
@@ -87,7 +86,7 @@ class Gaussian(PublicFunction):
                 a = format(time, '>10.2f') + '  fs'
             f.write("simulation time: t=" + a + '\n')
             f.write('\n')
-            addflag = False
+            addflag: bool = False
             with open(filename, 'r+') as f_1:
                 for line in f_1:
                     if not regex.search(line) or addflag:
@@ -101,11 +100,11 @@ class Gaussian(PublicFunction):
                         addflag = True
                         f.write(line)
 
-    def check(self, nstates):
+    def check(self, nstates: int):
         if os.path.isfile("gauss.gjf"):
-            flag_f = False
-            flag_p = False
-            flag_r = False
+            flag_f: bool = False
+            flag_p: bool = False
+            flag_r: bool = False
             with open("gauss.gjf", 'r') as f:
                 for line in f:
                     if re.match("#([pP])", line):
@@ -125,8 +124,8 @@ class Gaussian(PublicFunction):
         else:
             raise Exception("gauss.gjf is not found, please check *.gjf filename again")
 
-    def r_wavefunction(self, filename):
-        flag_chk = False
+    def r_wavefunction(self, filename: str):
+        flag_chk: bool = False
         with open(filename, 'r') as f:
             for line in f:
                 if re.search('geom=allcheck', line, re.IGNORECASE):
@@ -146,7 +145,7 @@ class Gaussian(PublicFunction):
         os.remove(filename)
         os.rename("%s.bak" % filename, filename)
 
-    def d_wavefunction(self, filename):
+    def d_wavefunction(self, filename: str):
         regex = re.compile('geom=allcheck', re.IGNORECASE)
         with open(filename, 'r') as f, open("%s.bak" % filename, 'w+') as f_new:
             for line in f:
@@ -157,16 +156,16 @@ class Gaussian(PublicFunction):
         os.remove(filename)
         os.rename("%s.bak" % filename, filename)
 
-    def renew_calc_states(self, nstates, filename, filename_new=None, st=None, spin=None, charge=None, remove=None,
-                          add=None):
+    def renew_calc_states(self, nstates: int, filename: int, filename_new: str = None,
+                          st=None, spin=None, charge=None, remove=None, add=None):
         regex_td = re.compile('(tda?=?\(.*?\)|tda)', re.IGNORECASE)
         regex_root = re.compile('(?<=root=)[0-9]+', re.IGNORECASE)
         regex_st = re.compile("singlets|triplets|50-50", re.IGNORECASE)
         regex_spin = re.compile("^\s*?-?[0-9]\s+[1-9]\s*$")
-        flag_td = False
-        flag_keyword = False
-        flag_file = False
-        ST = {'S': 'singlets', 'T': 'triplets', 'ST': '50-50'}
+        flag_td: bool = False
+        flag_keyword: bool = False
+        flag_file: bool = False
+        ST: dict = {'S': 'singlets', 'T': 'triplets', 'ST': '50-50'}
         with open(filename) as f:
             for line in f:
                 if regex_td.search(line):
@@ -229,8 +228,8 @@ def keyword(filename):
     with open(filename) as f:
         for line in f:
             if regex.search(line):
-                keyword = ' '.join(str(x) for x in regex.findall(line))
-                key.append(keyword)
+                keyword_str = ' '.join(str(x) for x in regex.findall(line))
+                key.append(keyword_str)
     tda = ' '.join(str(x) for x in key)
     return tda.strip()
 

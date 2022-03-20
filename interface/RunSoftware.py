@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import time
 
-from .prepare import soft, soft_path, EnterDir
+from .prepare import soft, soft_path, EnterDir, soft_tmp, flag_restart
 from .prepare import output_suffix, input_suffix, input_prefix
 
 __all__ = ["software_running"]
@@ -22,6 +22,14 @@ def temp_dic():
 temp_dic()
 if soft == "Gaussian":
     shutil.copy('gauss.chk', './GaussianTemp')
+elif soft == "Molpro" and flag_restart:
+    # Move wavefunction file to directory for temporary files
+    if soft_tmp[0] == "/":
+        # absolute path
+        shutil.copy("molpro.wfu", soft_tmp)
+    else:
+        # relative path, is about './MolproTemp/'
+        shutil.copy("molpro.wfu", os.getcwd() + "/MolproTemp/" + soft_tmp)
 
 
 class QuRun:
@@ -37,6 +45,7 @@ class QuRun:
         self.suffix = output_suffix[self.soft]
         self.input = input_prefix[self.soft] + "." + input_suffix[self.soft]
         self.output = input_prefix[self.soft] + "." + output_suffix[self.soft]
+        self.soft_tmp = soft_tmp
         shutil.copy(self.input, self.temDic)
 
     @staticmethod
@@ -49,9 +58,9 @@ class QuRun:
         # /home/wzb/software/g16/g16
         # OrcaPath
         # /home/wzb/software/orca_4_2_1_linux_x86-64_shared_openmpi314/orca
-        try:
+        if soft_path:
             self.path = soft_path
-        except NameError:
+        else:
             _path = subprocess.run(command_type[self.soft], shell=True, stdout=subprocess.PIPE, text=True)
             self.path = _path.stdout.replace("\n", "")
 
@@ -73,18 +82,25 @@ class QuRun:
             # g16 gauss.gjf => gauss.out
             self.command = self.path + " " + file1
         elif self.soft == "Orca":
+            # %moinp "old.gbw"
+            # New %base and input filename cannot be same as “old”
+            shutil.copy("orca.gbw", "orca.old.gbw")
             # orcaPath  orca.inp &> orca.out
             self.command = self.path + " " + file1 + " &> " + file2
         elif self.soft == "Molpro":
             # save wfu file in current dir and forbid backup file
-            # molpro  -W ./ --backup 1  molpro.in
-            self.command = self.path + " " + " -W ./  " + " --backup 1  --no-xml-output " + file1
+            # molpro  -W ./ -d ./ -s  molpro.in
+            a: str = ""
+            if self.soft_tmp:
+                a = "-d %s " % self.soft_tmp
+            self.command = self.path + " " + " -W ./ -s " + a + " --no-xml-output " + file1
         else:
             # I do not know...how to run molpro molcas BDF
             pass
 
     def running(self):
         print("The %s begin running at %s" % (self.soft, self.current_time()), flush=True)
+        print(self.command)
         proc = subprocess.Popen(self.command, shell=True)
         proc.wait()
         print("The %s ended at %s" % (self.soft, self.current_time()), flush=True)

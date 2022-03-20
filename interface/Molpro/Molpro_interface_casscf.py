@@ -3,7 +3,7 @@ import re
 
 import numpy as np
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from ..PublicFunction import PublicFunction
 
 eV = 27.21138602
@@ -11,7 +11,7 @@ ang = 0.529177257507  # Angstrom/Å e-10
 
 
 class Molpro(PublicFunction):
-    def energy(self, filename: str, nstates: int) -> Tuple[np.ndarray, float]:
+    def energy(self, filename: str, nstates: int) -> Tuple[List, float]:
         # !MCSCF STATE 2.1 Energy             -591.497026758027
         # the is singlets energy
         regex = re.compile("!MCSCF STATE \d+\.\d+ Energy")
@@ -20,7 +20,7 @@ class Molpro(PublicFunction):
             for line in f:
                 if regex.search(line):
                     data.append(float(line.split()[-1]))
-        return np.array(sorted(data)), sorted(data)[nstates]
+        return sorted(data), sorted(data)[nstates]
 
     def grad(self, filename: str) -> np.ndarray:
         regex = re.compile("SA-MC GRADIENT FOR STATE")
@@ -42,7 +42,7 @@ class Molpro(PublicFunction):
                             break
         return np.array(data)
 
-    def cico(self, time, filename):
+    def cico(self, time: Union[float, int], filename: str) -> None:
         regex_ci = re.compile("CI vector")
         regex_end = re.compile("TOTAL ENERGIES")
         with open("traj_cicoe.log", "a+") as f, open(filename, 'r', encoding="UTF-8") as f_o:
@@ -70,7 +70,7 @@ class Molpro(PublicFunction):
     def d_wavefunction(self, filename):
         pass
 
-    def renew_calc_states(self, nstates: int, filename, filename_new=None, spin: int = 0, **kwargs):
+    def renew_calc_states(self, nstates: int, filename: str, filename_new: str = None, spin: int = 0, **kwargs):
         # CPMCSCF,GRAD,1.1,spin=0,accu=1.0d-7,record=5101.1 !gradient for state 1
         # CPMCSCF,GRAD,state,[SPIN=spin],[MS2=ms2],[ACCU=thresh],[RECORD=record]
         # Force;SAMC,record
@@ -119,7 +119,10 @@ class Molpro(PublicFunction):
             os.remove(filename)
             os.rename(filename_new, filename)
 
-    def check(self, nstates: int, spin: int = 0, ):
+    def check(self, nstates: int, spin: int = 0):
+        # if os.path.isfile("./MolproTemp/molpro.wfu"):
+        #     print("The wavefunction file 'molpro.wfu' exist in ./MolproTemp and you should delete it")
+        #     os.remove("./MolproTemp/molpro.wfu")
         if os.path.isfile("molpro.in"):
             # file,2,**.wfn
             record_str: str = ''
